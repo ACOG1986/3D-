@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Wardrobe } from '../types/wardrobe';
 import {
   addSection,
+  allDoors,
+  updateWing,
+  wingWardrobe,
   carcassDims,
   clampItemY,
   computeCutting,
@@ -239,7 +242,7 @@ describe('раскрой', () => {
     const spec = computeSpec(computePanels(w));
     const sheets = computeCutting(spec);
     const placed = sheets.reduce((a, s) => a + s.placements.length, 0);
-    const expected = spec.filter((r) => r.thickness >= 8 && !r.material.startsWith('glass') && !r.material.startsWith('mirror')).reduce((a, r) => a + r.qty, 0);
+    const expected = spec.filter((r) => !r.material.startsWith('glass') && !r.material.startsWith('mirror')).reduce((a, r) => a + r.qty, 0);
     expect(placed).toBe(expected);
     for (const s of sheets) {
       for (const [i, a] of s.placements.entries()) {
@@ -251,5 +254,71 @@ describe('раскрой', () => {
         }
       }
     }
+  });
+});
+
+describe('раскрой ХДФ', () => {
+  it('задняя стенка и дно ящиков раскраиваются на листе ХДФ 2800×2070', () => {
+    const w = createWardrobe('swing');
+    const sheets = computeCutting(computeSpec(computePanels(w)));
+    const hdf = sheets.filter((s) => s.material === 'hdf-white');
+    expect(hdf.length).toBeGreaterThan(0);
+    expect(hdf[0].length).toBe(2800);
+    expect(hdf[0].width).toBe(2070);
+    expect(sheets.find((s) => s.material === 'ldsp-white')?.length).toBe(2750);
+  });
+});
+
+describe('угловой шкаф', () => {
+  const w = createWardrobe('corner');
+
+  it('создаётся с боковым крылом и без ошибок', () => {
+    expect(w.corner).toBeDefined();
+    expect(wingWardrobe(w)?.width).toBe(w.corner!.width);
+    expect(validate(w).filter((i) => i.severity === 'error')).toEqual([]);
+  });
+
+  it('детали бокового крыла развёрнуты и не пересекаются с основным', () => {
+    const panels = computePanels(w);
+    const wing = panels.filter((p) => p.wing);
+    expect(wing.length).toBeGreaterThan(10);
+    for (const p of wing) {
+      expect(p.z).toBeGreaterThanOrEqual(w.depth - 0.01);
+      expect(p.x).toBeGreaterThanOrEqual(-0.01);
+      expect(p.x + p.sx).toBeLessThanOrEqual(w.depth + 0.01);
+    }
+    const sides = computeSpec(panels).filter((r) => r.name === 'side').reduce((a, r) => a + r.qty, 0);
+    expect(sides).toBe(4);
+  });
+
+  it('справа — крыло у правой стены', () => {
+    const r = normalizeWardrobe({ ...w, corner: { ...w.corner!, side: 'right' } });
+    const wing = computePanels(r).filter((p) => p.wing);
+    for (const p of wing) expect(p.x).toBeGreaterThanOrEqual(r.width - r.depth - 0.01);
+  });
+
+  it('двери основного крыла не заходят в угловую зону', () => {
+    const doors = computeDoors(w);
+    expect(doors[0].x).toBeGreaterThanOrEqual(w.depth);
+    expect(allDoors(w)).toHaveLength(w.doors.count + w.corner!.doorCount);
+  });
+
+  it('фурнитура включает стяжки крыльев и петли обоих крыльев', () => {
+    const hw = computeHardware(w);
+    expect(hw.find((h) => h.key === 'cornerTie')?.qty).toBe(4);
+    const hinges = hw.find((h) => h.key === 'hingeOverlay')?.qty ?? 0;
+    const expected = allDoors(w).reduce((a, d) => a + hingeCount(d.height), 0);
+    expect(hinges).toBe(expected);
+  });
+
+  it('updateWing меняет только боковое крыло', () => {
+    const next = normalizeWardrobe(updateWing(w, (x) => addSection(x)));
+    expect(next.corner!.sections).toHaveLength(3);
+    expect(next.sections).toHaveLength(w.sections.length);
+  });
+
+  it('короткое крыло — ошибка', () => {
+    const bad = normalizeWardrobe({ ...w, corner: { ...w.corner!, width: 500 } });
+    expect(validate(bad).some((i) => i.code === 'cornerWingShort')).toBe(true);
   });
 });

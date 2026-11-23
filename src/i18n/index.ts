@@ -40,7 +40,8 @@ export function formatIssue(t: TFunction, issue: ValidationIssue): string {
   if (typeof p.kind === 'string') p.kind = tk(t, `item.${p.kind}`).toLowerCase();
   if (typeof p.other === 'string') p.other = tk(t, `item.${p.other}`);
   if (typeof p.dim === 'string') p.dim = tk(t, `dim.${p.dim}`);
-  return tk(t, `v.${issue.code}`, p);
+  const text = tk(t, `v.${issue.code}`, p);
+  return p.wing ? `${t('corner.wingShort')}: ${text}` : text;
 }
 
 export function hardwareName(t: TFunction, row: HardwareRow): string {

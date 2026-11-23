@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Wizard } from '../components/onboarding/Wizard';
 import { LANGS, LOCALE, type Lang } from '../i18n';
 import { useT } from '../i18n/useT';
 import { downloadBlob, safeFileName } from '../lib/export';
@@ -34,6 +35,8 @@ export function Projects() {
   const setTheme = useWardrobe((s) => s.setTheme);
   const [items, setItems] = useState<Wardrobe[]>(listProjects);
   const [error, setError] = useState('');
+  // Новичку без проектов сразу открываем мастер
+  const [wizard, setWizard] = useState(() => listProjects().length === 0);
   const file = useRef<HTMLInputElement>(null);
   const refresh = () => setItems(listProjects());
 
@@ -43,7 +46,7 @@ export function Projects() {
     window.location.hash = `#/editor/${w.id}`;
   };
 
-  const types: WardrobeType[] = ['swing', 'sliding', 'combined', 'built-in'];
+  const types: WardrobeType[] = ['swing', 'sliding', 'combined', 'built-in', 'corner'];
 
   return (
     <div className="h-full overflow-y-auto">
@@ -73,16 +76,36 @@ export function Projects() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <section className="mb-8">
           <h2 className="panel-title">{t('proj.new')}</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setWizard(true)}
+            className="group flex w-full items-center gap-4 rounded-xl bg-blue-600 p-5 text-left text-white shadow-lg transition hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300 dark:focus-visible:ring-blue-800"
+          >
+            <span aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15 text-3xl transition group-hover:scale-105">
+              ＋
+            </span>
+            <span className="min-w-0">
+              <span className="block text-lg font-semibold">{t('wiz.cta')}</span>
+              <span className="block text-sm text-blue-100">{t('wiz.ctaHint')}</span>
+            </span>
+            <span aria-hidden className="ml-auto hidden text-2xl sm:block">
+              →
+            </span>
+          </button>
+          <h3 className="mb-2 mt-5 text-xs text-slate-500 dark:text-slate-400">{t('wiz.orTemplate')}</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {types.map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => create(type)}
-                className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-left transition hover:border-blue-500 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900"
+                title={t(`wiz.type.${type}`)}
+                className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2.5 text-left text-sm transition hover:border-blue-500 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900"
               >
-                <span className="text-2xl text-blue-600">＋</span>
-                <span className="mt-1 block font-medium">{t(`type.${type}`)}</span>
+                <span className="text-blue-600" aria-hidden>
+                  ＋{' '}
+                </span>
+                <span className="font-medium">{t(`type.${type}`)}</span>
               </button>
             ))}
           </div>
@@ -119,7 +142,12 @@ export function Projects() {
             </p>
           )}
           {items.length === 0 ? (
-            <p className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">{t('proj.empty')}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+              <p>{t('proj.empty')}</p>
+              <button type="button" className="btn btn-primary mt-3" onClick={() => setWizard(true)}>
+                {t('wiz.cta')}
+              </button>
+            </div>
           ) : (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((w) => (
@@ -172,6 +200,7 @@ export function Projects() {
           )}
         </section>
       </main>
+      <Wizard open={wizard} onClose={() => setWizard(false)} />
     </div>
   );
 }

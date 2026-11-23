@@ -102,6 +102,22 @@ export interface HardwareItem {
   unit: Unit;
 }
 
+/**
+ * Второе крыло Г-образного углового шкафа. Стоит вдоль боковой стены,
+ * торцом примыкает к фасаду основного крыла. Высота, глубина, материалы
+ * и тип фасадов — общие с основным крылом.
+ */
+export interface CornerConfig {
+  /** С какой стороны основного крыла стоит боковое (если смотреть на основное). */
+  side: 'left' | 'right';
+  /** Габаритная ширина бокового крыла, мм. */
+  width: number;
+  /** Секции бокового крыла слева направо (если смотреть на него). */
+  sections: Section[];
+  /** Количество дверей бокового крыла. */
+  doorCount: number;
+}
+
 export interface Wardrobe {
   id: string;
   name: string;
@@ -122,6 +138,8 @@ export interface Wardrobe {
   sections: Section[];
   /** Дополнительная (ручная) фурнитура сверх рассчитанной. */
   hardware: HardwareItem[];
+  /** Боковое крыло (только для type === 'corner'). */
+  corner?: CornerConfig;
   createdAt: number;
   updatedAt: number;
 }
@@ -134,7 +152,7 @@ export type PartGroup = 'body' | 'back' | 'facade' | 'drawer' | 'plinth';
 export type EntityRef =
   | { type: 'carcass' }
   | { type: 'section'; sectionId: string }
-  | { type: 'divider'; index: number }
+  | { type: 'divider'; index: number; wing?: boolean }
   | { type: 'item'; sectionId: string; itemId: string }
   | { type: 'door'; index: number };
 
@@ -188,6 +206,10 @@ export interface Panel {
   ref: EntityRef;
   /** Не плитная деталь (штанга, корзина) — только для 3D/видов. */
   nonBoard?: boolean;
+  /** Ось длинной стороны штанги/пантографа в мировых координатах (по умолчанию x). */
+  axis?: 'x' | 'z';
+  /** Деталь бокового крыла углового шкафа. */
+  wing?: boolean;
 }
 
 export interface SpecRow {

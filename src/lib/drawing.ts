@@ -12,21 +12,23 @@ import {
   carcassDims,
   computeCutting,
   computeDoors,
+  cornerBlockedWidth,
   computeHardware,
   computePanels,
   computeSpec,
-  doorZ,
   edgeTotals,
   formatEdges,
   itemExtent,
   layoutSections,
   materialAreas,
+  wingWardrobe,
   type CutSheet,
 } from './geometry';
 import { materialName } from './materials';
 
 export const SHEET_W = 420;
 export const SHEET_H = 297;
+/** Листов у обычного шкафа (у углового — на один больше, см. sheetCount). */
 export const SHEETS_COUNT = 3;
 export const STANDARD_SCALES = [5, 10, 15, 20, 25, 50] as const;
 export const DRAWING_FONT = "'PT Sans Narrow', 'Arial Narrow', Arial, sans-serif";
@@ -179,9 +181,12 @@ interface StampInfo {
   project: string;
   scale: string;
   sheet: number;
+  total: number;
   date: string;
   dims: string;
 }
+
+type BaseStamp = Omit<StampInfo, 'sheet' | 'doc' | 'scale'>;
 
 function frame(t: TFunction, s: StampInfo): string {
   const o: string[] = [];
@@ -221,7 +226,7 @@ function frame(t: TFunction, s: StampInfo): string {
   o.push(line(rx + cw, y, rx + cw, y + 18, LINE_THIN));
   o.push(line(rx + 2 * cw, y, rx + 2 * cw, y + 18, LINE_THIN));
   const heads = [t('dr.stamp.scale'), t('dr.stamp.sheet'), t('dr.stamp.sheets')];
-  const vals = [s.scale, String(s.sheet), String(SHEETS_COUNT)];
+  const vals = [s.scale, String(s.sheet), String(s.total)];
   heads.forEach((hd, i) => {
     o.push(text(rx + cw * i + cw / 2, y + 5.8, fitText(hd, 2.8, cw - 1), { size: 2.8, anchor: 'middle' }));
     o.push(text(rx + cw * i + cw / 2, y + 15, vals[i], { size: 4, anchor: 'middle' }));
@@ -243,18 +248,26 @@ interface Layout1 {
   notes: { x: number; y: number };
 }
 
+/** Глубина плана (вида сверху): у углового шкафа — вместе с боковым крылом. */
+function planDepth(w: Wardrobe): number {
+  return w.depth + (w.type === 'corner' && w.corner ? w.corner.width : 0);
+}
+
 function layoutSheet1(w: Wardrobe): Layout1 {
   for (const s of STANDARD_SCALES) {
     const W = w.width / s;
     const H = w.height / s;
     const D = w.depth / s;
+    const P = planDepth(w) / s;
+    // У плана углового шкафа размер ширины стоит над видом — нужен больший отступ
+    const gapTop = w.type === 'corner' && w.corner ? 26 : 16;
     const fx = FRAME.x1 + 30;
     const fy = 36;
     const facadeX = fx + W + 26;
     const sideX = facadeX + W + 24;
     const right = sideX + D + 8;
-    const topY = fy + H + 16;
-    const bottom = topY + D + 14;
+    const topY = fy + H + gapTop;
+    const bottom = topY + P + 16;
     // Вид сверху слева от основной надписи
     const fitsBottom = bottom <= FRAME.y2 - 3 && fx + W + 14 <= STAMP.x;
     const fitsRight = right <= FRAME.x2 - 3 && fy + H + 6 <= STAMP.y;
@@ -273,7 +286,7 @@ function layoutSheet1(w: Wardrobe): Layout1 {
     front: { x: fx, y: 36 },
     facade: { x: fx + W + 26, y: 36 },
     side: { x: fx + 2 * W + 50, y: 36 },
-    top: { x: fx, y: 36 + H + 16 },
+    top: { x: fx, y: 36 + H + (w.type === 'corner' && w.corner ? 26 : 16) },
     notes: { x: fx + W + 26, y: 36 + H + 14 },
   };
 }
@@ -290,7 +303,7 @@ function frontView(w: Wardrobe, panels: Panel[], L: Layout1): string {
   const o: string[] = [];
   const hiddenNames = new Set(['back', 'plinthBack', 'drawerSide', 'drawerFrontBack', 'drawerBottom']);
   for (const p of panels) {
-    if (p.group === 'facade' || hiddenNames.has(p.name)) continue;
+    if (p.wing || p.group === 'facade' || hiddenNames.has(p.name)) continue;
     const x = X(p.x);
     const y = Y(p.y + p.sy);
     const pw = p.sx / s;
@@ -370,12 +383,33 @@ function doorMarks(door: Door, X: (x: number) => number, Y: (y: number) => numbe
   return line(mx - a, my, mx + a, my, 0.25) + arrow(mx - a, my, 'l') + arrow(mx + a, my, 'r');
 }
 
+/** Прямоугольник с косой штриховкой 45° (линии обрезаны по контуру). */
+function hatch(x: number, y: number, w: number, h: number, step: number): string {
+  const o: string[] = [rect(x, y, w, h, LINE_THIN)];
+  for (let c = step; c < w + h; c += step) {
+    // линия x + (y' - y) = x + c, обрезка по прямоугольнику
+    const x1 = x + Math.max(0, c - h);
+    const y1 = y + Math.min(c, h);
+    const x2 = x + Math.min(c, w);
+    const y2 = y + Math.max(0, c - w);
+    o.push(line(x1, y1, x2, y2, 0.13));
+  }
+  return o.join('');
+}
+
 function facadeView(w: Wardrobe, doors: Door[], L: Layout1): string {
   const { s } = L;
   const X = (x: number) => L.facade.x + x / s;
   const Y = (y: number) => L.facade.y + (w.height - y) / s;
   const o: string[] = [];
   o.push(rect(X(0), Y(w.height), w.width / s, w.height / s, LINE_THIN));
+  // Угловая зона, закрытая торцом бокового крыла
+  const blocked = cornerBlockedWidth(w);
+  if (blocked > 0) {
+    const bx = w.corner?.side === 'right' ? w.width - blocked : 0;
+    o.push(hatch(X(bx), Y(w.height), blocked / s, w.height / s, 4));
+    o.push(dimH(X(bx), X(bx + blocked), Y(0) + 7, Y(0), blocked));
+  }
   const ordered = [...doors].sort((a, b) => (a.track ?? 0) - (b.track ?? 0));
   for (const door of ordered) {
     o.push(rect(X(door.x), Y(door.y + door.height), door.width / s, door.height / s, LINE_MAIN, '#ffffff'));
@@ -405,10 +439,10 @@ function sideView(w: Wardrobe, panels: Panel[], L: Layout1): string {
   const sec = layout[0];
   const xc = sec ? sec.x + sec.width / 2 : w.width / 2;
   // Боковина за секущей плоскостью — тонкий контур
-  const side = panels.find((p) => p.name === 'side');
+  const side = panels.find((p) => p.name === 'side' && !p.wing);
   if (side) o.push(rect(Z(side.z), Y(side.y + side.sy), side.sz / s, side.sy / s, 0.3));
   for (const p of panels) {
-    if (p.name === 'side') continue;
+    if (p.name === 'side' || p.wing) continue;
     if (!(p.x <= xc && xc <= p.x + p.sx)) continue;
     const z = Z(p.z);
     const y = Y(p.y + p.sy);
@@ -431,33 +465,52 @@ function sideView(w: Wardrobe, panels: Panel[], L: Layout1): string {
   return o.join('');
 }
 
-function topView(w: Wardrobe, panels: Panel[], doors: Door[], L: Layout1): string {
+function topView(w: Wardrobe, panels: Panel[], L: Layout1): string {
   const { s } = L;
   const X = (x: number) => L.top.x + x / s;
   const Z = (z: number) => L.top.y + z / s;
-  const d = carcassDims(w);
   const o: string[] = [];
-  o.push(rect(X(0), Z(d.bt), w.width / s, d.panelDepth / s, LINE_MAIN, '#ffffff'));
-  if (d.hasBack) o.push(rect(X(2), Z(0), (w.width - 4) / s, Math.max(d.bt / s, 0.15), 0.3));
-  for (const p of panels) {
-    if (p.name === 'divider') o.push(rect(X(p.x), Z(p.z), p.sx / s, p.sz / s, 0.25, 'none', { 'stroke-dasharray': '1.5 1' }));
-    if (p.name === 'side') o.push(line(X(p.x + (p.x === 0 ? p.sx : 0)), Z(p.z), X(p.x + (p.x === 0 ? p.sx : 0)), Z(p.z + p.sz), LINE_THIN, { 'stroke-dasharray': '1.5 1' }));
+  const box = (p: Panel, stroke: number, fill = 'none', extra: Attrs = {}) => rect(X(p.x), Z(p.z), p.sx / s, p.sz / s, stroke, fill, extra);
+  // Крыша (контур корпуса), боковины, задняя стенка, перегородки, фасады — в мировых координатах,
+  // поэтому одинаково для основного и бокового крыла.
+  for (const p of panels) if (p.name === 'top') o.push(box(p, LINE_MAIN, '#ffffff'));
+  for (const p of panels) if (p.name === 'side') o.push(box(p, LINE_MAIN, '#ffffff'));
+  for (const p of panels) if (p.name === 'back') o.push(box(p, 0.3));
+  for (const p of panels) if (p.name === 'divider') o.push(box(p, 0.25, 'none', { 'stroke-dasharray': '1.5 1' }));
+  for (const p of panels) if (p.group === 'facade') o.push(box(p, 0.35, '#ffffff'));
+
+  const D = w.depth;
+  const P = planDepth(w);
+  const corner = w.type === 'corner' && w.corner ? w.corner : null;
+  const bottom = Z(P);
+  const leftX = X(0);
+  const rightX = X(w.width);
+  if (!corner) {
+    o.push(dimH(X(0), X(w.width), bottom + 9, bottom, w.width));
+    o.push(dimV(Z(0), Z(D), rightX + 8, rightX, D));
+    return o.join('');
   }
-  for (const door of doors) {
-    const z = doorZ(w, door);
-    o.push(rect(X(door.x), Z(z), door.width / s, door.thickness / s, 0.35, '#ffffff'));
-  }
-  const bottom = Z(w.depth);
-  o.push(dimH(X(0), X(w.width), bottom + 9, bottom, w.width));
-  const right = X(w.width);
-  o.push(dimV(Z(0), Z(w.depth), right + 8, right, w.depth));
+  const left = corner.side === 'left';
+  // Ширина основного крыла — сверху (у стены), глубина крыла и остаток — снизу
+  o.push(dimH(X(0), X(w.width), Z(0) - 5, null, w.width));
+  const wx1 = left ? 0 : w.width - D;
+  o.push(dimH(X(wx1), X(wx1 + D), bottom + 8, bottom, D));
+  // Со стороны крыла: общая длина вдоль боковой стены и ширина крыла
+  const sideX = left ? leftX : rightX;
+  const dir = left ? -1 : 1;
+  o.push(dimV(Z(0), Z(P), sideX + dir * 15, sideX, P));
+  o.push(dimV(Z(D), Z(P), sideX + dir * 8, sideX, corner.width));
+  // С другой стороны — глубина основного крыла
+  const otherX = left ? rightX : leftX;
+  o.push(dimV(Z(0), Z(D), otherX - dir * 8, otherX, D));
   return o.join('');
 }
 
-function sheet1(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 'sheet' | 'doc' | 'scale'>): string {
+function sheet1(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp): string {
   const L = layoutSheet1(w);
   const panels = computePanels(w);
   const doors = computeDoors(w);
+  const isCorner = w.type === 'corner' && !!w.corner;
   const o: string[] = [];
   o.push(viewTitle(L.front.x, 13, t('dr.front')));
   o.push(frontView(w, panels, L));
@@ -465,8 +518,8 @@ function sheet1(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 's
   o.push(facadeView(w, doors, L));
   o.push(viewTitle(L.side.x, 13, t('dr.side')));
   o.push(sideView(w, panels, L));
-  o.push(viewTitle(L.top.x, L.top.y - 3, t('dr.top')));
-  o.push(topView(w, panels, doors, L));
+  o.push(viewTitle(L.top.x, L.top.y - (isCorner ? 12 : 3), t(isCorner ? 'dr.plan' : 'dr.top')));
+  o.push(topView(w, panels, L));
 
   // Технические требования
   const notes = [
@@ -486,6 +539,24 @@ function sheet1(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 's
     o.push(text(nx, ny, fitText(n, 3, limit), { size: 3 }));
   }
   o.push(frame(t, { ...stamp, doc: t('dr.stamp.doc'), scale: `1:${L.s}`, sheet: 1 }));
+  return svgDoc(o.join(''));
+}
+
+/** Лист бокового крыла углового шкафа: вид спереди, фасады, разрез. */
+function sheetWing(w: Wardrobe, t: TFunction, stamp: BaseStamp, sheet: number): string {
+  const wing = wingWardrobe(w);
+  if (!wing) return '';
+  const L = layoutSheet1(wing);
+  const panels = computePanels(wing);
+  const doors = computeDoors(wing);
+  const o: string[] = [];
+  o.push(viewTitle(L.front.x, 13, t('dr.wingFront')));
+  o.push(frontView(wing, panels, L));
+  o.push(viewTitle(L.facade.x, 13, t('dr.wingFacades')));
+  o.push(facadeView(wing, doors, L));
+  o.push(viewTitle(L.side.x, 13, t('dr.side')));
+  o.push(sideView(wing, panels, L));
+  o.push(frame(t, { ...stamp, doc: t('dr.stamp.docWing'), scale: `1:${L.s}`, sheet }));
   return svgDoc(o.join(''));
 }
 
@@ -529,7 +600,7 @@ function table(x: number, y: number, cols: Col[], rows: string[][], maxH: number
   return { svg: o.join(''), height };
 }
 
-function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 'sheet' | 'doc' | 'scale'>): string {
+function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: number): string {
   const panels = computePanels(w);
   const spec = computeSpec(panels);
   const hw = computeHardware(w);
@@ -579,7 +650,7 @@ function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 's
     o.push(text(hx, ty, fitText(line_, 3, 158), { size: 3 }));
     ty += 4.5;
   }
-  o.push(frame(t, { ...stamp, doc: t('dr.stamp.docSpec'), scale: '—', sheet: 2 }));
+  o.push(frame(t, { ...stamp, doc: t('dr.stamp.docSpec'), scale: '—', sheet }));
   return svgDoc(o.join(''));
 }
 
@@ -622,23 +693,26 @@ function cutSheetSvg(cs: CutSheet, x: number, y: number, maxW: number, maxH: num
   return o.join('');
 }
 
-function sheet3(w: Wardrobe, t: TFunction, lang: Lang, stamp: Omit<StampInfo, 'sheet' | 'doc' | 'scale'>): string {
+function sheet3(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: number): string {
   const spec = computeSpec(computePanels(w));
   const sheets = computeCutting(spec);
   const o: string[] = [];
   const x0 = FRAME.x1 + 5;
   o.push(viewTitle(x0, 13, t('dr.cutting')));
-  const cells = [
-    { x: x0, y: 18 },
-    { x: x0 + 197, y: 18 },
-    { x: x0, y: 124 },
-    { x: x0 + 197, y: 124 },
-  ];
-  sheets.slice(0, 4).forEach((cs, i) => {
-    o.push(cutSheetSvg(cs, cells[i].x, cells[i].y, 185, 104, t, lang));
+  // До 4 листов — сетка 2×2, больше — 3×3 (мельче), остальное — строкой «ещё листов»
+  const cols = sheets.length <= 4 ? 2 : 3;
+  const maxCells = cols * cols;
+  const areaW = FRAME.x2 - 5 - x0;
+  const areaH = STAMP.y - 6 - 18;
+  const cellW = areaW / cols;
+  const cellH = areaH / cols;
+  sheets.slice(0, maxCells).forEach((cs, i) => {
+    const cx = x0 + (i % cols) * cellW;
+    const cy = 18 + Math.floor(i / cols) * cellH;
+    o.push(cutSheetSvg(cs, cx, cy, cellW - 12, cellH - 2, t, lang));
   });
-  if (sheets.length > 4) o.push(text(x0, 236, t('dr.cuttingMore', { n: sheets.length - 4 }), { size: 3.5 }));
-  o.push(frame(t, { ...stamp, doc: t('dr.stamp.docCut'), scale: '—', sheet: 3 }));
+  if (sheets.length > maxCells) o.push(text(x0, STAMP.y + 4, t('dr.cuttingMore', { n: sheets.length - maxCells }), { size: 3.5 }));
+  o.push(frame(t, { ...stamp, doc: t('dr.stamp.docCut'), scale: '—', sheet }));
   return svgDoc(o.join(''));
 }
 
@@ -648,7 +722,14 @@ export function sheetScale(w: Wardrobe): number {
   return layoutSheet1(w).s;
 }
 
-/** Три листа чертежа: виды с размерами, спецификация с фурнитурой, раскрой. */
+/** Количество листов: 3, у углового шкафа — 4 (добавляется лист бокового крыла). */
+export function sheetCount(w: Wardrobe): number {
+  return wingWardrobe(w) ? SHEETS_COUNT + 1 : SHEETS_COUNT;
+}
+
+/**
+ * Листы чертежа: виды с размерами, [боковое крыло], спецификация с фурнитурой, раскрой.
+ */
 export function buildSheets(w: Wardrobe, t: TFunction, lang: Lang): string[] {
   let date: string;
   try {
@@ -656,6 +737,13 @@ export function buildSheets(w: Wardrobe, t: TFunction, lang: Lang): string[] {
   } catch {
     date = new Date(w.updatedAt || Date.now()).toISOString().slice(0, 10);
   }
-  const stamp = { project: w.name, date, dims: `${w.width}×${w.height}×${w.depth}` };
-  return [sheet1(w, t, lang, stamp), sheet2(w, t, lang, stamp), sheet3(w, t, lang, stamp)];
+  const total = sheetCount(w);
+  const corner = w.type === 'corner' && w.corner ? w.corner : null;
+  const dims = corner ? `${w.width}/${corner.width}×${w.height}×${w.depth}` : `${w.width}×${w.height}×${w.depth}`;
+  const stamp: BaseStamp = { project: w.name, date, dims, total };
+  const sheets = [sheet1(w, t, lang, stamp)];
+  if (corner) sheets.push(sheetWing(w, t, stamp, sheets.length + 1));
+  sheets.push(sheet2(w, t, lang, stamp, sheets.length + 1));
+  sheets.push(sheet3(w, t, lang, stamp, sheets.length + 1));
+  return sheets;
 }

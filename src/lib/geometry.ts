@@ -5,6 +5,7 @@
  */
 import type {
   BasketItem,
+  CornerConfig,
   Door,
   DrawerItem,
   EdgeThickness,
@@ -53,6 +54,7 @@ export const SHELF_FRONT_SETBACK = 10;
 /** Стандартные длины направляющих ящиков, мм. */
 export const SLIDE_LENGTHS = [250, 300, 350, 400, 450, 500, 550, 600, 650] as const;
 export const SHEET = { length: 2750, width: 1830, kerf: 4, trim: 10 } as const;
+export const HDF_SHEET = { length: 2800, width: 2070, kerf: 4, trim: 5 } as const;
 
 /* ------------------------------------------------------------------ */
 /* Утилиты                                                              */
@@ -168,6 +170,23 @@ export function layoutSections(w: Wardrobe): SectionLayout[] {
 
 /** Возвращает модель с нормализованными ширинами секций и подрезанным наполнением. */
 export function normalizeWardrobe(w: Wardrobe): Wardrobe {
+  const main = normalizeSingle(w);
+  if (main.type !== 'corner') return main;
+  const corner = main.corner ?? defaultCorner(main);
+  const withCorner = { ...main, corner };
+  const wing = normalizeSingle(wingWardrobe(withCorner)!);
+  return {
+    ...withCorner,
+    corner: {
+      ...corner,
+      width: wing.width,
+      sections: wing.sections,
+      doorCount: wing.doors.kind === 'none' ? corner.doorCount : wing.doors.count,
+    },
+  };
+}
+
+function normalizeSingle(w: Wardrobe): Wardrobe {
   const widths = fitSectionWidths(
     w.sections.map((s) => s.width),
     availableSectionsWidth(w),
@@ -360,13 +379,18 @@ export function computeDoors(w: Wardrobe): Door[] {
   const n = doors.kind === 'sliding' ? clamp(Math.round(doors.count), 2, 3) : Math.max(1, Math.round(doors.count));
   const mat = (i: number) => doors.overrides[i] ?? doors.material;
 
+  // У основного крыла углового шкафа угловая зона закрыта торцом бокового крыла
+  const blocked = cornerBlockedWidth(w);
+  const left = w.corner?.side !== 'right';
+
   if (doors.kind === 'sliding') {
-    const opening = d.innerWidth;
+    const opening = d.innerWidth - Math.max(0, blocked - d.t);
+    const start = d.t + (left ? Math.max(0, blocked - d.t) : 0);
     const width = Math.round((opening + SLIDING_OVERLAP * (n - 1)) / n);
     const height = d.innerHeight - SLIDING_HEIGHT_CLEARANCE;
     const thickness = 20;
     return Array.from({ length: n }, (_, i) => {
-      const x = Math.min(d.t + i * (width - SLIDING_OVERLAP), d.t + opening - width);
+      const x = Math.min(start + i * (width - SLIDING_OVERLAP), start + opening - width);
       const track = i % 2 === 1 ? 1 : 0;
       return {
         index: i,
@@ -383,12 +407,14 @@ export function computeDoors(w: Wardrobe): Door[] {
   }
 
   const gap = doors.gap;
-  const width = Math.floor((w.width - n * gap) / n);
+  const span = w.width - blocked;
+  const start = left ? blocked : 0;
+  const width = Math.floor((span - n * gap) / n);
   const height = Math.floor(w.height - d.plinthH - gap);
   return Array.from({ length: n }, (_, i) => ({
     index: i,
     kind: doors.kind as 'swing' | 'lift',
-    x: round1(gap / 2 + i * (width + gap)),
+    x: round1(start + gap / 2 + i * (width + gap)),
     y: round1(d.plinthH + gap / 2),
     width,
     height,
@@ -456,8 +482,19 @@ function panel(
   };
 }
 
-/** Рассчитывает все детали шкафа с их положением в пространстве. */
+/**
+ * Рассчитывает все детали шкафа с их положением в пространстве.
+ * Для углового шкафа добавляются детали бокового крыла, развёрнутые на 90°.
+ */
 export function computePanels(w: Wardrobe): Panel[] {
+  const main = computeSinglePanels(w);
+  const wing = wingWardrobe(w);
+  if (!wing) return main;
+  const doorOffset = computeDoors(w).length;
+  return [...main, ...computeSinglePanels(wing).map((p) => placeWingPanel(w, wing, p, doorOffset))];
+}
+
+function computeSinglePanels(w: Wardrobe): Panel[] {
   const d = carcassDims(w);
   const { t, bt, plinthH, panelDepth, interiorDepth, innerHeight, innerBottom } = d;
   const V = w.edge.visible;
@@ -931,6 +968,7 @@ export type HardwareKey =
   | 'pushLatch'
   | 'handleBar'
   | 'handleKnob'
+  | 'cornerTie'
   | 'custom';
 
 export interface HardwareRow {
@@ -941,6 +979,22 @@ export interface HardwareRow {
 }
 
 export function computeHardware(w: Wardrobe): HardwareRow[] {
+  const main = computeSingleHardware(w);
+  const wing = wingWardrobe(w);
+  if (!wing) return main;
+  const merged = new Map<string, HardwareRow>();
+  for (const r of [...main, ...computeSingleHardware({ ...wing, hardware: [] })]) {
+    const id = r.key + JSON.stringify(r.params);
+    const prev = merged.get(id);
+    if (prev) prev.qty = Math.round((prev.qty + r.qty) * 100) / 100;
+    else merged.set(id, { ...r });
+  }
+  // Стяжка крыльев между собой
+  merged.set('cornerTie', { key: 'cornerTie', params: {}, qty: 4, unit: 'pcs' });
+  return [...merged.values()];
+}
+
+function computeSingleHardware(w: Wardrobe): HardwareRow[] {
   const d = carcassDims(w);
   const rows = new Map<string, HardwareRow>();
   const add = (key: HardwareKey, qty: number, unit: Unit = 'pcs', params: MessageParams = {}) => {
@@ -1019,6 +1073,28 @@ export function computeHardware(w: Wardrobe): HardwareRow[] {
  * чтобы их можно было показать на любом языке.
  */
 export function validate(w: Wardrobe): ValidationIssue[] {
+  const main = validateSingle(w);
+  const wing = wingWardrobe(w);
+  if (!wing) return main;
+  const doorOffset = computeDoors(w).length;
+  const wingIssues = validateSingle(wing)
+    // габариты общие — не дублируем
+    .filter((i) => i.code !== 'range' || i.params.dim === 'width')
+    .map((i): ValidationIssue => {
+      let ref = i.ref;
+      if (ref?.type === 'door') ref = { type: 'door', index: ref.index + doorOffset };
+      if (ref?.type === 'divider') ref = { ...ref, wing: true };
+      return { ...i, params: { ...i.params, wing: 1 }, ref };
+    });
+  const extra: ValidationIssue[] = [];
+  if (w.corner && w.corner.width < w.depth + 300)
+    extra.push({ severity: 'error', code: 'cornerWingShort', params: { min: w.depth + 300 }, ref: { type: 'carcass' } });
+  if (w.width < w.depth + 300)
+    extra.push({ severity: 'error', code: 'cornerMainShort', params: { min: w.depth + 300 }, ref: { type: 'carcass' } });
+  return [...main, ...wingIssues, ...extra];
+}
+
+function validateSingle(w: Wardrobe): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const d = carcassDims(w);
   const push = (severity: ValidationIssue['severity'], code: string, params: MessageParams = {}, ref?: EntityRef) =>
@@ -1034,7 +1110,6 @@ export function validate(w: Wardrobe): ValidationIssue[] {
   if (w.plinth.enabled) checkRange('plinth', w.plinth.height, LIMITS.plinth);
   if (d.interiorDepth < 200) push('error', 'interiorDepth', { value: d.interiorDepth }, carcass);
   if (d.slidingDoors && w.depth < 450) push('warning', 'slidingDepth', {}, carcass);
-  if (w.type === 'corner') push('warning', 'cornerTodo', {}, carcass);
 
   const layout = layoutSections(w);
   layout.forEach((sl) => {
@@ -1109,13 +1184,19 @@ export interface CutSheet {
 }
 
 /**
- * Упрощённая гильотинная раскладка «полосами»: детали сортируются по ширине,
- * укладываются в горизонтальные полосы вдоль длины листа.
+ * Упрощённая гильотинная раскладка: детали от крупных к мелким, каждая — в свободный
+ * прямоугольник с наименьшим остатком; без текстуры деталь можно поворачивать.
  */
-export function computeCutting(rows: SpecRow[], sheet: { length: number; width: number; kerf: number; trim: number } = SHEET): CutSheet[] {
-  const byMat = new Map<string, { w: number; h: number; label: string; pos: number; grain: boolean }[]>();
+/** Формат листа: ЛДСП/МДФ — 2750×1830, ХДФ — 2800×2070. */
+export function sheetFor(material: string): { length: number; width: number; kerf: number; trim: number } {
+  return getMaterial(material).kind === 'hdf' ? HDF_SHEET : SHEET;
+}
+
+export function computeCutting(rows: SpecRow[], override?: { length: number; width: number; kerf: number; trim: number }): CutSheet[] {
+  type Part = { w: number; h: number; label: string; pos: number; grain: boolean };
+  const byMat = new Map<string, Part[]>();
   for (const r of rows) {
-    if (!isSheetGoods(r.material) || r.thickness < 8) continue;
+    if (!isSheetGoods(r.material)) continue;
     const grain = getMaterial(r.material).grain;
     for (let i = 0; i < r.qty; i++) {
       const list = byMat.get(r.material) ?? [];
@@ -1123,62 +1204,64 @@ export function computeCutting(rows: SpecRow[], sheet: { length: number; width: 
       byMat.set(r.material, list);
     }
   }
-  const L = sheet.length - 2 * sheet.trim;
-  const W = sheet.width - 2 * sheet.trim;
   const result: CutSheet[] = [];
   for (const [material, parts] of byMat) {
-    // Без текстуры можно поворачивать: кладём длинной стороной вдоль листа
-    const items = parts
-      .map((p) => {
-        if (p.w > L && !p.grain && p.w <= W) return { ...p, w: p.h, h: p.w, rotated: true };
-        return { ...p, rotated: false };
-      })
-      .sort((a, b) => b.h - a.h || b.w - a.w);
-    type Strip = { y: number; h: number; x: number };
-    type Sheet = { strips: Strip[]; usedY: number; placements: CutPlacement[] };
-    const sheets: Sheet[] = [];
-    const newSheet = (): Sheet => {
-      const s: Sheet = { strips: [], usedY: 0, placements: [] };
-      sheets.push(s);
-      return s;
+    const sheet = override ?? sheetFor(material);
+    const L = sheet.length - 2 * sheet.trim;
+    const W = sheet.width - 2 * sheet.trim;
+    const k = sheet.kerf;
+    // Крупные детали первыми
+    const items = [...parts].sort((a, b) => b.w * b.h - a.w * a.h || b.w - a.w);
+    type Rect = { x: number; y: number; w: number; h: number };
+    type Bin = { free: Rect[]; placements: CutPlacement[] };
+    const bins: Bin[] = [];
+    const newBin = (): Bin => {
+      const bin: Bin = { free: [{ x: 0, y: 0, w: L, h: W }], placements: [] };
+      bins.push(bin);
+      return bin;
     };
-    for (const it of items) {
-      if (it.w > L || it.h > W) continue; // не помещается на лист — пропускаем
-      let placed = false;
-      for (const s of sheets) {
-        for (const st of s.strips) {
-          if (it.h <= st.h && st.x + it.w <= L) {
-            s.placements.push({ x: sheet.trim + st.x, y: sheet.trim + st.y, w: it.w, h: it.h, label: it.label, pos: it.pos, rotated: it.rotated });
-            st.x += it.w + sheet.kerf;
-            placed = true;
-            break;
+
+    /** Гильотинная укладка: лучший по короткому остатку свободный прямоугольник. */
+    const tryPlace = (bin: Bin, it: Part): boolean => {
+      let best: { i: number; w: number; h: number; rotated: boolean; score: number } | null = null;
+      bin.free.forEach((f, i) => {
+        const opts: [number, number, boolean][] = [[it.w, it.h, false]];
+        if (!it.grain) opts.push([it.h, it.w, true]);
+        for (const [w, h, rotated] of opts) {
+          if (w <= f.w && h <= f.h) {
+            const score = Math.min(f.w - w, f.h - h);
+            if (!best || score < best.score) best = { i, w, h, rotated, score };
           }
         }
-        if (placed) break;
-        if (s.usedY + it.h <= W) {
-          const st: Strip = { y: s.usedY, h: it.h, x: it.w + sheet.kerf };
-          s.strips.push(st);
-          s.placements.push({ x: sheet.trim, y: sheet.trim + s.usedY, w: it.w, h: it.h, label: it.label, pos: it.pos, rotated: it.rotated });
-          s.usedY += it.h + sheet.kerf;
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        const s = newSheet();
-        s.strips.push({ y: 0, h: it.h, x: it.w + sheet.kerf });
-        s.placements.push({ x: sheet.trim, y: sheet.trim, w: it.w, h: it.h, label: it.label, pos: it.pos, rotated: it.rotated });
-        s.usedY = it.h + sheet.kerf;
-      }
+      });
+      if (!best) return false;
+      const { i, w, h, rotated } = best as { i: number; w: number; h: number; rotated: boolean };
+      const f = bin.free[i];
+      bin.placements.push({ x: sheet.trim + f.x, y: sheet.trim + f.y, w, h, label: it.label, pos: it.pos, rotated });
+      // Разрез по более короткому остатку: два новых свободных прямоугольника
+      const rw = f.w - w - k;
+      const rh = f.h - h - k;
+      const splitHoriz = rw < rh;
+      const right: Rect = { x: f.x + w + k, y: f.y, w: rw, h: splitHoriz ? h : f.h };
+      const top: Rect = { x: f.x, y: f.y + h + k, w: splitHoriz ? f.w : w, h: rh };
+      bin.free.splice(i, 1);
+      for (const r of [right, top]) if (r.w > 20 && r.h > 20) bin.free.push(r);
+      return true;
+    };
+
+    for (const it of items) {
+      const fits = (it.w <= L && it.h <= W) || (!it.grain && it.h <= L && it.w <= W);
+      if (!fits) continue; // не помещается на лист — пропускаем
+      if (!bins.some((bin) => tryPlace(bin, it))) tryPlace(newBin(), it);
     }
-    sheets.forEach((s, i) => {
-      const area = s.placements.reduce((a, p) => a + p.w * p.h, 0);
+    bins.forEach((bin, i) => {
+      const area = bin.placements.reduce((a, p) => a + p.w * p.h, 0);
       result.push({
         material,
         index: i + 1,
         length: sheet.length,
         width: sheet.width,
-        placements: s.placements,
+        placements: bin.placements,
         usage: Math.round((area / (sheet.length * sheet.width)) * 1000) / 10,
       });
     });
@@ -1247,7 +1330,114 @@ export function createWardrobe(type: WardrobeType = 'swing', name = 'Новый 
     base.doors.kind = 'swing';
     base.doors.count = 4;
   }
+  if (type === 'corner') {
+    base.width = 2000;
+    base.doors.count = 3;
+    const withSections = normalizeSingle({ ...base, sections });
+    return normalizeWardrobe({ ...withSections, corner: defaultCorner(withSections) });
+  }
   return normalizeWardrobe({ ...base, sections });
+}
+
+/* ------------------------------------------------------------------ */
+/* Угловой шкаф (Г-образный)                                            */
+/* ------------------------------------------------------------------ */
+
+/** Ширина угловой зоны основного крыла, закрытой торцом бокового крыла, мм. */
+export function cornerBlockedWidth(w: Wardrobe): number {
+  return w.type === 'corner' && w.corner ? w.depth : 0;
+}
+
+export function defaultCorner(w: Wardrobe): CornerConfig {
+  const width = 1400;
+  const probe: Wardrobe = { ...w, type: 'swing', width, corner: undefined, sections: [] };
+  const n = 2;
+  const avail = availableSectionsWidth(probe, n);
+  const widths = fitSectionWidths(Array(n).fill(avail / n), avail);
+  const innerH = carcassDims(probe).innerHeight;
+  const top = Math.floor((innerH - 450) / 10) * 10;
+  return {
+    side: 'left',
+    width,
+    doorCount: w.doors.kind === 'sliding' ? 2 : 3,
+    sections: [
+      { id: uid('sec'), width: widths[0], items: [{ ...createItem('shelf', top), fixed: true } as SectionItem, createItem('rod', top - 60)] },
+      {
+        id: uid('sec'),
+        width: widths[1],
+        items: [{ ...createItem('shelf', top), fixed: true } as SectionItem, ...[400, 750, 1100, 1450].map((y) => createItem('shelf', y))],
+      },
+    ],
+  };
+}
+
+/**
+ * Боковое крыло как самостоятельный шкаф (в своих локальных координатах).
+ * null — если шкаф не угловой.
+ */
+export function wingWardrobe(w: Wardrobe): Wardrobe | null {
+  if (w.type !== 'corner' || !w.corner) return null;
+  const mainDoors = w.doors.kind === 'none' ? 0 : w.doors.count;
+  return {
+    ...w,
+    id: `${w.id}-wing`,
+    type: 'swing',
+    width: w.corner.width,
+    sections: w.corner.sections,
+    doors: { ...w.doors, count: w.corner.doorCount, overrides: w.doors.overrides.slice(mainDoors) },
+    hardware: [],
+    corner: undefined,
+  };
+}
+
+/** Модель для редактирования: основное или боковое крыло. */
+export function activeWardrobe(w: Wardrobe, wing: 'main' | 'corner'): Wardrobe {
+  return wing === 'corner' ? (wingWardrobe(w) ?? w) : w;
+}
+
+/** Применяет изменение к боковому крылу и записывает результат обратно в модель. */
+export function updateWing(w: Wardrobe, fn: (wing: Wardrobe) => Wardrobe): Wardrobe {
+  const wing = wingWardrobe(w);
+  if (!wing || !w.corner) return w;
+  const next = fn(wing);
+  return {
+    ...w,
+    height: next.height,
+    depth: next.depth,
+    corner: { ...w.corner, width: next.width, sections: next.sections, doorCount: next.doors.count },
+  };
+}
+
+/** Находит, в каком крыле лежит секция. */
+export function sectionWing(w: Wardrobe, sectionId: string): 'main' | 'corner' | null {
+  if (w.sections.some((s) => s.id === sectionId)) return 'main';
+  if (w.corner?.sections.some((s) => s.id === sectionId)) return 'corner';
+  return null;
+}
+
+/** Все двери: основное крыло, затем боковое (индексы сквозные). */
+export function allDoors(w: Wardrobe): Door[] {
+  const main = computeDoors(w);
+  const wing = wingWardrobe(w);
+  if (!wing) return main;
+  return [...main, ...computeDoors(wing).map((d) => ({ ...d, index: d.index + main.length }))];
+}
+
+/**
+ * Переносит деталь бокового крыла в мировые координаты основного.
+ * Слева: спина крыла у стены x=0, фасад смотрит в +x, торец упирается в фасад основного (z = depth).
+ * Справа: спина у стены x=width, фасад в −x.
+ */
+function placeWingPanel(w: Wardrobe, wing: Wardrobe, p: Panel, doorOffset: number): Panel {
+  const W2 = wing.width;
+  const D = w.depth;
+  const left = w.corner?.side !== 'right';
+  const x = left ? p.z : w.width - p.z - p.sz;
+  const z = left ? D + W2 - p.x - p.sx : D + p.x;
+  let ref = p.ref;
+  if (ref.type === 'door') ref = { type: 'door', index: ref.index + doorOffset };
+  if (ref.type === 'divider') ref = { ...ref, wing: true };
+  return { ...p, key: `wing-${p.key}`, x, z, sx: p.sz, sz: p.sx, ref, axis: 'z', wing: true };
 }
 
 /** Простейшая проверка импортируемого JSON на соответствие модели. */

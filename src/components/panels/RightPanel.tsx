@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useT } from '../../i18n/useT';
 import type { MessageKey } from '../../i18n';
-import { carcassDims, computeDoors, layoutSections, LIMITS, sortItems } from '../../lib/geometry';
+import { activeWardrobe, allDoors, carcassDims, layoutSections, LIMITS, sectionWing, sortItems } from '../../lib/geometry';
 import { backMaterials, bodyMaterials, facadeMaterials } from '../../lib/materials';
 import { findSelectedItem, useWardrobe } from '../../store/wardrobeStore';
 import type { DoorKind, HandleType, HingeType, SectionItem, SlideType, Wardrobe, WardrobeType } from '../../types/wardrobe';
@@ -26,6 +26,10 @@ function CarcassProps() {
   const addSection = useWardrobe((s) => s.addSection);
   const mm = t('mm');
   const types: WardrobeType[] = ['swing', 'sliding', 'combined', 'built-in', 'corner'];
+  const applyTemplate = useWardrobe((s) => s.applyTemplate);
+  const setCorner = useWardrobe((s) => s.setCorner);
+  const setWing = useWardrobe((s) => s.setWing);
+  const setView = useWardrobe((s) => s.setView);
   const doorKinds: DoorKind[] = ['swing', 'sliding', 'lift', 'none'];
 
   return (
@@ -41,14 +45,15 @@ function CarcassProps() {
               max={LIMITS[k].max}
               step={10}
               unit={mm}
+              help={k === 'depth' ? t('help.depth') : undefined}
               onCommit={(v) => patch({ [k]: Math.round(v) } as Partial<Wardrobe>)}
             />
           ))}
         </div>
-        <Select label={t('right.type')} value={w.type} options={types.map((v) => ({ value: v, label: t(`type.${v}`) }))} onChange={(type) => patch({ type })} />
+        <Select label={t('right.type')} value={w.type} options={types.map((v) => ({ value: v, label: t(`type.${v}`) }))} onChange={(type) => (type === 'corner' && !w.corner ? applyTemplate('corner') : patch({ type }))} />
         <div className="grid grid-cols-2 gap-2">
-          <Segmented label={t('right.board')} value={w.boardThickness} options={[16, 18, 22].map((v) => ({ value: v as 16 | 18 | 22, label: String(v) }))} onChange={(v) => patch({ boardThickness: v })} />
-          <Segmented label={t('right.backT')} value={w.backThickness} options={[3, 4].map((v) => ({ value: v as 3 | 4, label: String(v) }))} onChange={(v) => patch({ backThickness: v })} />
+          <Segmented label={t('right.board')} help={t('help.board')} value={w.boardThickness} options={[16, 18, 22].map((v) => ({ value: v as 16 | 18 | 22, label: String(v) }))} onChange={(v) => patch({ boardThickness: v })} />
+          <Segmented label={t('right.backT')} help={t('help.back')} value={w.backThickness} options={[3, 4].map((v) => ({ value: v as 3 | 4, label: String(v) }))} onChange={(v) => patch({ backThickness: v })} />
         </div>
         <div className="grid grid-cols-2 items-end gap-2">
           <label className="flex items-center gap-2 text-sm">
@@ -57,6 +62,7 @@ function CarcassProps() {
           </label>
           <DimensionInput
             label={t('right.plinthH')}
+            help={t('help.plinth')}
             value={w.plinth.height}
             min={LIMITS.plinth.min}
             max={LIMITS.plinth.max}
@@ -68,6 +74,7 @@ function CarcassProps() {
         <div className="grid grid-cols-2 gap-2">
           <Select
             label={`${t('right.edge')}: ${t('right.edgeVisible')}`}
+            help={t('help.edge')}
             value={w.edge.visible}
             options={[2, 0.4, 0].map((v) => ({ value: v as 0 | 0.4 | 2, label: v ? `${v} ${mm}` : t('edge.0') }))}
             onChange={(v) => patch({ edge: { ...w.edge, visible: v } })}
@@ -80,9 +87,10 @@ function CarcassProps() {
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Select<HingeType> label={t('right.hinge')} value={w.hinge} options={(['overlay', 'half-overlay', 'inset'] as const).map((v) => ({ value: v, label: t(`hinge.${v}`) }))} onChange={(hinge) => patch({ hinge })} />
+          <Select<HingeType> label={t('right.hinge')} help={t('help.hinge')} value={w.hinge} options={(['overlay', 'half-overlay', 'inset'] as const).map((v) => ({ value: v, label: t(`hinge.${v}`) }))} onChange={(hinge) => patch({ hinge })} />
           <Select<SlideType>
             label={t('right.slide')}
+            help={t('help.slide')}
             value={w.defaultSlide}
             options={(['roller', 'ball', 'tandem'] as const).map((v) => ({ value: v, label: t(`slide.${v}`) }))}
             onChange={(defaultSlide) => patch({ defaultSlide })}
@@ -97,9 +105,52 @@ function CarcassProps() {
         </button>
       </Group>
 
+      {w.type === 'corner' && w.corner && (
+        <Group title={t('corner.title')}>
+          <Segmented
+            label={t('corner.side')}
+            value={w.corner.side}
+            options={(['left', 'right'] as const).map((v) => ({ value: v, label: t(`corner.${v}`) }))}
+            onChange={(side) => setCorner({ side })}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <DimensionInput
+              label={t('corner.width')}
+              value={w.corner.width}
+              min={w.depth + 300}
+              max={LIMITS.width.max}
+              step={10}
+              unit={mm}
+              onCommit={(v) => setCorner({ width: Math.round(v) })}
+            />
+            {w.doors.kind !== 'none' && (
+              <DimensionInput
+                label={t('corner.doors')}
+                value={w.corner.doorCount}
+                min={w.doors.kind === 'sliding' ? 2 : 1}
+                max={w.doors.kind === 'sliding' ? 3 : 8}
+                unit=""
+                onCommit={(v) => setCorner({ doorCount: Math.round(v) })}
+              />
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setWing('corner');
+              setView('front');
+            }}
+          >
+            ✎ {t('corner.edit')}
+          </button>
+        </Group>
+      )}
+
       <Group title={t('right.doors')}>
         <Select<DoorKind>
           label={t('right.doorKind')}
+          help={t('help.sliding')}
           value={w.doors.kind}
           options={doorKinds.map((v) => ({ value: v, label: t(`door.${v}`) }))}
           onChange={(kind) => setDoors({ kind, count: kind === 'sliding' ? Math.min(3, Math.max(2, w.doors.count)) : w.doors.count })}
@@ -113,9 +164,10 @@ function CarcassProps() {
             )}
             {w.doors.kind !== 'sliding' && (
               <div className="grid grid-cols-2 gap-2">
-                <DimensionInput label={t('right.gap')} value={w.doors.gap} min={LIMITS.gap.min} max={LIMITS.gap.max} step={0.5} unit={mm} onCommit={(gap) => setDoors({ gap })} />
+                <DimensionInput label={t('right.gap')} help={t('help.gap')} value={w.doors.gap} min={LIMITS.gap.min} max={LIMITS.gap.max} step={0.5} unit={mm} onCommit={(gap) => setDoors({ gap })} />
                 <Select<HandleType>
                   label={t('right.handle')}
+                  help={t('help.push')}
                   value={w.doors.handle}
                   options={(['bar', 'knob', 'push'] as const).map((v) => ({ value: v, label: t(`handle.${v}`) }))}
                   onChange={(handle) => setDoors({ handle })}
@@ -186,8 +238,10 @@ function SectionProps({ sectionId }: { sectionId: string }) {
   const setSectionWidth = useWardrobe((s) => s.setSectionWidth);
   const splitSection = useWardrobe((s) => s.splitSection);
   const removeSection = useWardrobe((s) => s.removeSection);
-  const section = w.sections.find((s) => s.id === sectionId);
-  const layout = useMemo(() => layoutSections(w), [w]);
+  const wing = sectionWing(w, sectionId) ?? 'main';
+  const owner = useMemo(() => activeWardrobe(w, wing), [w, wing]);
+  const section = owner.sections.find((s) => s.id === sectionId);
+  const layout = useMemo(() => layoutSections(owner), [owner]);
   if (!section) return null;
   const sl = layout.find((l) => l.id === sectionId)!;
   const kinds: (SectionItem['kind'] | 'fixedShelf')[] = ['shelf', 'fixedShelf', 'drawer', 'rod', 'basket', 'pantograph'];
@@ -200,7 +254,7 @@ function SectionProps({ sectionId }: { sectionId: string }) {
         max={LIMITS.sectionWidth.max}
         step={10}
         unit={t('mm')}
-        disabled={w.sections.length < 2}
+        disabled={owner.sections.length < 2}
         onCommit={(v) => setSectionWidth(sectionId, v)}
       />
       <div>
@@ -237,7 +291,7 @@ function SectionProps({ sectionId }: { sectionId: string }) {
         <button type="button" className="btn flex-1" onClick={() => splitSection(sectionId)}>
           {t('right.split')}
         </button>
-        <button type="button" className="btn btn-danger flex-1" disabled={w.sections.length < 2} onClick={() => removeSection(sectionId)}>
+        <button type="button" className="btn btn-danger flex-1" disabled={owner.sections.length < 2} onClick={() => removeSection(sectionId)}>
           {t('right.removeSection')}
         </button>
       </div>
@@ -249,7 +303,7 @@ function DoorProps({ index }: { index: number }) {
   const t = useT();
   const w = useWardrobe((s) => s.wardrobe);
   const setDoors = useWardrobe((s) => s.setDoors);
-  const door = computeDoors(w)[index];
+  const door = allDoors(w)[index];
   if (!door) return null;
   const override = w.doors.overrides[index] ?? null;
   const setOverride = (id: string | null) => {
@@ -274,14 +328,21 @@ function DoorProps({ index }: { index: number }) {
   );
 }
 
-function DividerProps({ index }: { index: number }) {
+function DividerProps({ index, wing }: { index: number; wing: boolean }) {
   const t = useT();
   const w = useWardrobe((s) => s.wardrobe);
   const moveDivider = useWardrobe((s) => s.moveDivider);
-  const s = w.sections[index];
+  const s = (wing ? (w.corner?.sections ?? []) : w.sections)[index];
   if (!s) return null;
   return (
-    <DimensionInput label={t('right.dividerPos')} value={s.width} min={LIMITS.sectionWidth.min} step={10} unit={t('mm')} onCommit={(v) => moveDivider(index, v)} />
+    <DimensionInput
+      label={t('right.dividerPos')}
+      value={s.width}
+      min={LIMITS.sectionWidth.min}
+      step={10}
+      unit={t('mm')}
+      onCommit={(v) => moveDivider(index, v, true, wing ? 'corner' : 'main')}
+    />
   );
 }
 
@@ -296,12 +357,14 @@ export function RightPanel() {
   let body: React.ReactNode = <CarcassProps />;
   if (found) {
     const it = found.item;
-    title = `${t('right.section', { n: found.index + 1 })} · ${it.kind === 'shelf' && it.fixed ? t('item.fixedShelf') : t(KIND_KEY[it.kind])}`;
+    title = `${found.wing ? `${t('corner.wingShort')} · ` : ''}${t('right.section', { n: found.index + 1 })} · ${it.kind === 'shelf' && it.fixed ? t('item.fixedShelf') : t(KIND_KEY[it.kind])}`;
     body = <ItemProps sectionId={found.section.id} item={it} />;
   } else if (sel?.type === 'section') {
-    const idx = w.sections.findIndex((s) => s.id === sel.sectionId);
+    const inWing = sectionWing(w, sel.sectionId) === 'corner';
+    const list = inWing ? (w.corner?.sections ?? []) : w.sections;
+    const idx = list.findIndex((s) => s.id === sel.sectionId);
     if (idx >= 0) {
-      title = t('right.section', { n: idx + 1 });
+      title = `${inWing ? `${t('corner.wingShort')} · ` : ''}${t('right.section', { n: idx + 1 })}`;
       body = <SectionProps sectionId={sel.sectionId} />;
     }
   } else if (sel?.type === 'door') {
@@ -309,7 +372,8 @@ export function RightPanel() {
     body = <DoorProps index={sel.index} />;
   } else if (sel?.type === 'divider') {
     title = t('right.divider', { n: sel.index + 1 });
-    body = <DividerProps index={sel.index} />;
+    body = <DividerProps index={sel.index} wing={!!sel.wing} />;
+    if (sel.wing) title = `${t('corner.wingShort')} · ${title}`;
   }
   const nested = sel && sel.type !== 'carcass';
   const parentSection = found ? found.section.id : null;

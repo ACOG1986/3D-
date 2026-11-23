@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useT } from '../../i18n/useT';
-import { buildSheets, SHEETS_COUNT } from '../../lib/drawing';
+import { buildSheets } from '../../lib/drawing';
 import { useWardrobe } from '../../store/wardrobeStore';
 
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
@@ -19,7 +19,7 @@ export function DrawingView() {
   const setSheet = useWardrobe((s) => s.setSheet);
   const [zoomIdx, setZoomIdx] = useState(2);
   const sheets = useMemo(() => buildSheets(w, t, lang), [w, t, lang]);
-  const index = Math.min(Math.max(sheet, 1), SHEETS_COUNT) - 1;
+  const index = Math.min(Math.max(sheet, 1), sheets.length) - 1;
   const zoom = ZOOMS[zoomIdx];
 
   return (

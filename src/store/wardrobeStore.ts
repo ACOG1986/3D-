@@ -10,11 +10,14 @@ import {
   normalizeWardrobe,
   removeSection as removeSectionFn,
   setSectionWidth as setSectionWidthFn,
+  sectionWing,
   splitSection as splitSectionFn,
   uid,
+  updateWing,
+  wingWardrobe,
 } from '../lib/geometry';
 import { saveProject } from '../lib/projects';
-import type { DoorsConfig, EntityRef, Section, SectionItem, SectionItemKind, Wardrobe, WardrobeType } from '../types/wardrobe';
+import type { CornerConfig, DoorsConfig, EntityRef, Section, SectionItem, SectionItemKind, Wardrobe, WardrobeType } from '../types/wardrobe';
 
 export type ViewMode = '3d' | 'front' | 'top' | 'drawing';
 export type CameraPreset = 'iso' | 'front' | 'top';
@@ -74,6 +77,8 @@ export interface WardrobeState {
   showDims: boolean;
   camera: { preset: CameraPreset; nonce: number };
   sheet: number;
+  /** Какое крыло углового шкафа редактируется в 2D. */
+  wing: 'main' | 'corner';
   theme: Theme;
   lang: Lang;
 
@@ -87,12 +92,16 @@ export interface WardrobeState {
 
   patch: (p: Partial<Wardrobe>) => void;
   setDoors: (p: Partial<DoorsConfig>) => void;
+  setCorner: (p: Partial<CornerConfig>) => void;
+  /** Изменение габаритов активного крыла (ширина бокового крыла пишется в corner). */
+  patchActive: (p: Partial<Pick<Wardrobe, 'width' | 'height' | 'depth'>>) => void;
+  setWing: (wing: 'main' | 'corner') => void;
   applyTemplate: (type: WardrobeType) => void;
   addSection: () => void;
   splitSection: (id: string) => void;
   removeSection: (id: string) => void;
   setSectionWidth: (id: string, width: number) => void;
-  moveDivider: (index: number, leftWidth: number, history?: boolean) => void;
+  moveDivider: (index: number, leftWidth: number, history?: boolean, wing?: 'main' | 'corner') => void;
   addItem: (sectionId: string, kind: SectionItemKind | 'fixedShelf', y?: number) => string | null;
   updateItem: (sectionId: string, itemId: string, p: Partial<SectionItem>, history?: boolean) => void;
   removeItem: (sectionId: string, itemId: string) => void;
@@ -112,7 +121,17 @@ export interface WardrobeState {
 const prefs = loadPrefs();
 
 function mapSection(w: Wardrobe, id: string, fn: (s: Section) => Section): Wardrobe {
-  return { ...w, sections: w.sections.map((s) => (s.id === id ? fn(s) : s)) };
+  const map = (list: Section[]) => list.map((s) => (s.id === id ? fn(s) : s));
+  return { ...w, sections: map(w.sections), corner: w.corner ? { ...w.corner, sections: map(w.corner.sections) } : w.corner };
+}
+
+function findSection(w: Wardrobe, id: string): Section | undefined {
+  return w.sections.find((s) => s.id === id) ?? w.corner?.sections.find((s) => s.id === id);
+}
+
+/** Применяет операцию к тому крылу, где находится секция. */
+function onSectionWing(w: Wardrobe, sectionId: string, fn: (x: Wardrobe) => Wardrobe): Wardrobe {
+  return sectionWing(w, sectionId) === 'corner' ? updateWing(w, fn) : fn(w);
 }
 
 export const useWardrobe = create<WardrobeState>((set, get) => ({
@@ -129,10 +148,11 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
   showDims: true,
   camera: { preset: 'iso', nonce: 0 },
   sheet: 1,
+  wing: 'main',
   theme: prefs.theme,
   lang: prefs.lang,
 
-  load: (w) => set({ wardrobe: normalizeWardrobe(w), past: [], future: [], selection: null, saveState: 'saved', savedAt: w.updatedAt }),
+  load: (w) => set({ wardrobe: normalizeWardrobe(w), past: [], future: [], selection: null, wing: 'main', saveState: 'saved', savedAt: w.updatedAt }),
 
   update: (fn, opts) => {
     const cur = get().wardrobe;
@@ -161,6 +181,13 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
 
   patch: (p) => get().update((w) => ({ ...w, ...p })),
   setDoors: (p) => get().update((w) => ({ ...w, doors: { ...w.doors, ...p } })),
+  setCorner: (p) => get().update((w) => (w.corner ? { ...w, corner: { ...w.corner, ...p } } : w)),
+  patchActive: (p) => {
+    if (get().wing === 'corner' && get().wardrobe.corner) {
+      get().update((w) => updateWing(w, (x) => ({ ...x, ...p })));
+    } else get().patch(p);
+  },
+  setWing: (wing) => set({ wing }),
 
   applyTemplate: (type) =>
     get().update((w) => {
@@ -169,17 +196,20 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
     }),
 
   addSection: () => get().update((w) => addSectionFn(w)),
-  splitSection: (id) => get().update((w) => splitSectionFn(w, id)),
+  splitSection: (id) => get().update((w) => onSectionWing(w, id, (x) => splitSectionFn(x, id))),
   removeSection: (id) => {
-    get().update((w) => removeSectionFn(w, id));
+    get().update((w) => onSectionWing(w, id, (x) => removeSectionFn(x, id)));
     set({ selection: { type: 'carcass' } });
   },
-  setSectionWidth: (id, width) => get().update((w) => setSectionWidthFn(w, id, width)),
-  moveDivider: (index, leftWidth, history = true) => get().update((w) => moveDividerFn(w, index, leftWidth), { history }),
+  setSectionWidth: (id, width) => get().update((w) => onSectionWing(w, id, (x) => setSectionWidthFn(x, id, width))),
+  moveDivider: (index, leftWidth, history = true, wing = get().wing) =>
+    get().update((w) => (wing === 'corner' && w.corner ? updateWing(w, (x) => moveDividerFn(x, index, leftWidth)) : moveDividerFn(w, index, leftWidth)), {
+      history,
+    }),
 
   addItem: (sectionId, kind, y) => {
     const w = get().wardrobe;
-    const section = w.sections.find((s) => s.id === sectionId);
+    const section = findSection(w, sectionId);
     if (!section) return null;
     const realKind: SectionItemKind = kind === 'fixedShelf' ? 'shelf' : kind;
     const base = createItem(realKind, 0, w.defaultSlide);
@@ -213,7 +243,7 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
 
   duplicateItem: (sectionId, itemId) => {
     const w = get().wardrobe;
-    const section = w.sections.find((s) => s.id === sectionId);
+    const section = findSection(w, sectionId);
     const item = section?.items.find((i) => i.id === itemId);
     if (!section || !item) return;
     const copy = { ...item, id: uid(item.kind) } as SectionItem;
@@ -228,7 +258,9 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
     if (sel.type === 'item') get().removeItem(sel.sectionId, sel.itemId);
     else if (sel.type === 'section') get().removeSection(sel.sectionId);
     else if (sel.type === 'divider') {
-      const s = get().wardrobe.sections[sel.index + 1];
+      const w = get().wardrobe;
+      const list = sel.wing ? (w.corner?.sections ?? []) : w.sections;
+      const s = list[sel.index + 1];
       if (s) get().removeSection(s.id);
     }
   },
@@ -276,12 +308,32 @@ useWardrobe.subscribe((state, prev) => {
 });
 
 /* Селекторы-хелперы */
-export function findSelectedItem(w: Wardrobe, sel: EntityRef | null): { section: Section; item: SectionItem; index: number } | null {
+export function findSelectedItem(
+  w: Wardrobe,
+  sel: EntityRef | null,
+): { section: Section; item: SectionItem; index: number; wing: boolean } | null {
   if (!sel || sel.type !== 'item') return null;
-  const index = w.sections.findIndex((s) => s.id === sel.sectionId);
-  const section = w.sections[index];
-  const item = section?.items.find((i) => i.id === sel.itemId);
-  return section && item ? { section, item, index } : null;
+  for (const [list, wing] of [
+    [w.sections, false],
+    [w.corner?.sections ?? [], true],
+  ] as const) {
+    const index = list.findIndex((s) => s.id === sel.sectionId);
+    const section = list[index];
+    const item = section?.items.find((i) => i.id === sel.itemId);
+    if (section && item) return { section, item, index, wing };
+  }
+  return null;
+}
+
+/** Модель активного крыла для 2D-редактора (мемоизируется по модели и крылу). */
+let activeCache: { w: Wardrobe; wing: string; out: Wardrobe } | null = null;
+export function useActiveWardrobe(): Wardrobe {
+  const w = useWardrobe((s) => s.wardrobe);
+  const wing = useWardrobe((s) => s.wing);
+  if (activeCache && activeCache.w === w && activeCache.wing === wing) return activeCache.out;
+  const out = wing === 'corner' ? (wingWardrobe(w) ?? w) : w;
+  activeCache = { w, wing, out };
+  return out;
 }
 
 export function sameRef(a: EntityRef | null, b: EntityRef | null): boolean {

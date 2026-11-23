@@ -29,19 +29,24 @@ const PanelMesh = memo(function PanelMesh({ panel: p, offset, selected, onSelect
   const material = selected ? getHighlightMaterial(p.material) : getThreeMaterial(p.material);
 
   if (p.name === 'rod' || p.name === 'pantograph') {
+    const alongZ = p.axis === 'z';
+    const len = alongZ ? p.sz : p.sx;
     return (
       <group position={pos} onClick={handle}>
-        <mesh geometry={unitCylinder} material={material} rotation={[0, 0, Math.PI / 2]} scale={[p.sy * MM, p.sx * MM, p.sz * MM]} castShadow />
+        <mesh
+          geometry={unitCylinder}
+          material={material}
+          rotation={alongZ ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2]}
+          scale={[25 * MM, len * MM, 25 * MM]}
+          castShadow
+        />
         {p.name === 'pantograph' &&
-          [-1, 1].map((s) => (
-            <mesh
-              key={s}
-              geometry={unitBox}
-              material={material}
-              position={[(s * p.sx * MM) / 2 - s * 0.01, -0.06, 0]}
-              scale={[0.015, 0.14, 0.015]}
-            />
-          ))}
+          [-1, 1].map((s) => {
+            const o = (s * len * MM) / 2 - s * 0.01;
+            return (
+              <mesh key={s} geometry={unitBox} material={material} position={alongZ ? [0, -0.06, o] : [o, -0.06, 0]} scale={[0.015, 0.14, 0.015]} />
+            );
+          })}
       </group>
     );
   }

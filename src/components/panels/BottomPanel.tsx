@@ -35,7 +35,7 @@ export function BottomPanel() {
   const tabs: [Tab, string][] = [
     ['spec', `${t('bottom.spec')} (${parts})`],
     ['hardware', t('bottom.hardware')],
-    ['issues', `${t('bottom.issues')}${issues.length ? ` (${issues.length})` : ''}`],
+    ['issues', `${t('bottom.issues')}${issues.length ? ` (${issues.length})` : ' ✓'}`],
   ];
 
   return (
@@ -53,7 +53,7 @@ export function BottomPanel() {
             }}
             className={`rounded px-2 py-1 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
               tab === k && open ? 'bg-slate-200 dark:bg-slate-700' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-            } ${k === 'issues' && errors ? 'text-red-600 dark:text-red-400' : k === 'issues' && warnings ? 'text-amber-600 dark:text-amber-400' : ''}`}
+            } ${k === 'issues' && errors ? 'text-red-600 dark:text-red-400' : k === 'issues' && warnings ? 'text-amber-600 dark:text-amber-400' : k === 'issues' ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
           >
             {label}
           </button>
@@ -67,6 +67,7 @@ export function BottomPanel() {
       </div>
       {open && (
         <div className="max-h-44 min-h-0 overflow-auto px-2 pb-2 text-xs">
+          {tab === 'spec' && <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">{t('hint.specLegend')}</p>}
           {tab === 'spec' && (
             <table className="w-full border-collapse tabular-nums">
               <thead className="sticky top-0 bg-white text-left text-slate-500 dark:bg-slate-900">
@@ -110,9 +111,18 @@ export function BottomPanel() {
           )}
           {tab === 'issues' &&
             (issues.length === 0 ? (
-              <p className="py-2 text-emerald-600 dark:text-emerald-400">✓ {t('bottom.noIssues')}</p>
+              <div className="flex items-start gap-3 rounded-lg bg-emerald-50 p-3 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200" role="status">
+                <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+                  ✓
+                </span>
+                <div>
+                  <p className="text-sm font-medium">{t('hint.allGood')}</p>
+                  <p className="text-xs opacity-80">{t('hint.allGoodSub')}</p>
+                </div>
+              </div>
             ) : (
               <ul className="flex flex-col gap-0.5">
+                <li className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">{t('hint.issuesLegend')}</li>
                 {issues.map((i, k) => (
                   <li key={k}>
                     <button

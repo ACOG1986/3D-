@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { LANGS, LOCALE, type Lang } from '../../i18n';
 import { useT } from '../../i18n/useT';
+import { sheetCount } from '../../lib/drawing';
 import { exportJson, exportPdf, exportPng, exportSvg } from '../../lib/export';
 import { useWardrobe, type ViewMode } from '../../store/wardrobeStore';
 
-const SHEETS = [1, 2, 3];
 
-export function TopBar({ onHotkeys }: { onHotkeys: () => void }) {
+export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: () => void }) {
   const t = useT();
   const w = useWardrobe((s) => s.wardrobe);
   const lang = useWardrobe((s) => s.lang);
@@ -23,6 +23,7 @@ export function TopBar({ onHotkeys }: { onHotkeys: () => void }) {
   const setLang = useWardrobe((s) => s.setLang);
   const patch = useWardrobe((s) => s.patch);
   const [menu, setMenu] = useState(false);
+  const SHEETS = Array.from({ length: sheetCount(w) }, (_, i) => i + 1);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState(w.name);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,7 @@ export function TopBar({ onHotkeys }: { onHotkeys: () => void }) {
         {saveState === 'saving' ? t('top.saving') : saveState === 'error' ? '⚠' : savedAt ? `✓ ${t('top.saved', { time })}` : ''}
       </span>
 
-      <div className="seg mx-auto" role="tablist" aria-label={t('view.3d')}>
+      <div className="seg mx-auto" role="tablist" aria-label={t('view.3d')} data-tour="views">
         {views.map(([v, label, key]) => (
           <button key={v} type="button" role="tab" aria-selected={view === v} aria-pressed={view === v} onClick={() => setView(v)} title={`${label} (${key})`}>
             {label}
@@ -104,12 +105,27 @@ export function TopBar({ onHotkeys }: { onHotkeys: () => void }) {
       <button type="button" className="btn px-2" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('top.theme')} title={t('top.theme')}>
         {theme === 'dark' ? '☀' : '☾'}
       </button>
-      <button type="button" className="btn px-2" onClick={onHotkeys} aria-label={t('top.hotkeys')} title={t('top.hotkeys')}>
-        ?
+      <button type="button" className="btn hidden px-2 xl:inline-flex" onClick={onHotkeys} aria-label={t('top.hotkeys')} title={t('top.hotkeys')}>
+        ⌨
       </button>
-      <div className="relative" ref={menuRef}>
-        <button type="button" className="btn btn-primary" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)} disabled={busy}>
-          {busy ? t('export.busy') : `⬇ ${t('top.export')}`}
+      <button type="button" className="btn px-2" onClick={onTour} aria-label={t('tour.howTo')} title={t('tour.howTo')}>
+        <span aria-hidden className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+          ?
+        </span>
+        <span className="hidden xl:inline">{t('tour.howTo')}</span>
+      </button>
+      <div className="relative" ref={menuRef} data-tour="download">
+        <button
+          type="button"
+          className="btn btn-primary flex-col items-start gap-0 py-1 leading-tight"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          onClick={() => setMenu(!menu)}
+          disabled={busy}
+          title={t('help.download')}
+        >
+          <span>{busy ? t('export.busy') : `⬇ ${t('top.export')}`}</span>
+          <span className="text-[10px] font-normal opacity-80">{t('hint.downloadSub')}</span>
         </button>
         {menu && (
           <div role="menu" className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">

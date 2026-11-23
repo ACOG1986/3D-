@@ -3,6 +3,8 @@ import { DrawingView } from '../components/drawing2d/DrawingView';
 import { FrontEditor } from '../components/drawing2d/FrontEditor';
 import { TopEditor } from '../components/drawing2d/TopEditor';
 import { BottomPanel } from '../components/panels/BottomPanel';
+import { DndHint } from '../components/onboarding/DndHint';
+import { Tour, tourSeen } from '../components/onboarding/Tour';
 import { HotkeysDialog } from '../components/panels/HotkeysDialog';
 import { LeftPanel } from '../components/panels/LeftPanel';
 import { RightPanel } from '../components/panels/RightPanel';
@@ -71,6 +73,7 @@ export function Editor({ id }: { id: string }) {
   const loadedId = useWardrobe((s) => s.wardrobe.id);
   const [help, setHelp] = useState(false);
   const [side, setSide] = useState<'left' | 'right' | null>(null);
+  const [tour, setTour] = useState(false);
 
   useEffect(() => {
     let w = getProject(id);
@@ -85,20 +88,30 @@ export function Editor({ id }: { id: string }) {
 
   useHotkeys(() => setHelp(true));
 
-  if (loadedId !== id) return null;
+  // Первый визит в редактор — короткое знакомство
+  const ready = loadedId === id;
+  useEffect(() => {
+    if (!ready || tourSeen()) return;
+    const timer = setTimeout(() => setTour(true), 600);
+    return () => clearTimeout(timer);
+  }, [ready]);
+
+  if (!ready) return null;
 
   return (
     <div className="flex h-full flex-col">
-      <TopBar onHotkeys={() => setHelp(true)} />
+      <TopBar onHotkeys={() => setHelp(true)} onTour={() => setTour(true)} />
       <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[256px_minmax(0,1fr)_320px]">
         <div
+          data-tour="catalog"
           className={`${side === 'left' ? 'absolute inset-y-0 left-0 z-20 w-72 shadow-2xl' : 'hidden'} min-h-0 lg:static lg:block lg:w-auto lg:shadow-none`}
         >
           <LeftPanel />
         </div>
         <main className="flex min-h-0 min-w-0 flex-col">
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1" data-tour="scene">
             {view === '3d' && <Scene />}
+            {(view === '3d' || view === 'front') && !tour && <DndHint />}
             {view === 'front' && <FrontEditor />}
             {view === 'top' && <TopEditor />}
             {view === 'drawing' && <DrawingView />}
@@ -111,15 +124,19 @@ export function Editor({ id }: { id: string }) {
               </button>
             </div>
           </div>
-          <BottomPanel />
+          <div data-tour="bottom">
+            <BottomPanel />
+          </div>
         </main>
         <div
+          data-tour="props"
           className={`${side === 'right' ? 'absolute inset-y-0 right-0 z-20 w-80 shadow-2xl' : 'hidden'} min-h-0 lg:static lg:block lg:w-auto lg:shadow-none`}
         >
           <RightPanel />
         </div>
       </div>
       <HotkeysDialog open={help} onClose={() => setHelp(false)} />
+      <Tour open={tour} onClose={() => setTour(false)} />
     </div>
   );
 }

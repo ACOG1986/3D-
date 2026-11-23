@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useT } from '../../i18n/useT';
 import { carcassDims, computeDoors, itemExtent, itemsOverlap, layoutSections, LIMITS, snap } from '../../lib/geometry';
-import { sameRef, useWardrobe } from '../../store/wardrobeStore';
+import { sameRef, useActiveWardrobe, useWardrobe } from '../../store/wardrobeStore';
 import type { EntityRef, SectionItem, SectionLayout } from '../../types/wardrobe';
 import { DimensionInput } from '../controls/DimensionInput';
 import { readDragKind } from '../panels/dragKinds';
@@ -23,7 +23,12 @@ const BAD = 'fill-red-500/30 stroke-red-600';
  */
 export function FrontEditor() {
   const t = useT();
-  const w = useWardrobe((s) => s.wardrobe);
+  const w = useActiveWardrobe();
+  const hasWing = useWardrobe((s) => s.wardrobe.type === 'corner' && !!s.wardrobe.corner);
+  const wingMode = useWardrobe((s) => s.wing);
+  const setWing = useWardrobe((s) => s.setWing);
+  const isWing = hasWing && wingMode === 'corner';
+  const divRef = (index: number): EntityRef => (isWing ? { type: 'divider', index, wing: true } : { type: 'divider', index });
   const selection = useWardrobe((s) => s.selection);
   const showDoors = useWardrobe((s) => s.showDoors);
   const select = useWardrobe((s) => s.select);
@@ -31,7 +36,7 @@ export function FrontEditor() {
   const updateItem = useWardrobe((s) => s.updateItem);
   const moveDivider = useWardrobe((s) => s.moveDivider);
   const setSectionWidth = useWardrobe((s) => s.setSectionWidth);
-  const patch = useWardrobe((s) => s.patch);
+  const patch = useWardrobe((s) => s.patchActive);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -82,7 +87,7 @@ export function FrontEditor() {
 
   const startDividerDrag = (e: ReactPointerEvent<SVGElement>, index: number) => {
     e.stopPropagation();
-    select({ type: 'divider', index });
+    select(divRef(index));
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     setDrag({ type: 'divider', index, moved: false });
   };
@@ -241,6 +246,16 @@ export function FrontEditor() {
 
   return (
     <div ref={boxRef} className={`relative flex h-full w-full flex-col ${dragOver ? 'ring-4 ring-inset ring-blue-400' : ''}`}>
+      {hasWing && (
+        <div className="absolute left-3 top-3 z-10 seg bg-white/90 dark:bg-slate-800/90" role="group" aria-label={t('corner.title')}>
+          <button type="button" aria-pressed={!isWing} onClick={() => setWing('main')}>
+            {t('view.mainWing')}
+          </button>
+          <button type="button" aria-pressed={isWing} onClick={() => setWing('corner')}>
+            {t('view.cornerWing')}
+          </button>
+        </div>
+      )}
       <svg
         ref={svgRef}
         viewBox={`${-margin * 1.4} ${-margin} ${W + margin * 2.4} ${H + margin * 2.2}`}
@@ -336,7 +351,7 @@ export function FrontEditor() {
 
         {/* перегородки */}
         {layout.slice(0, -1).map((sl, i) => {
-          const ref: EntityRef = { type: 'divider', index: i };
+          const ref: EntityRef = divRef(i);
           return (
             <g key={`div-${i}`} onPointerDown={(e) => startDividerDrag(e, i)} className="cursor-ew-resize" role="button" aria-label={t('right.divider', { n: i + 1 })}>
               <rect

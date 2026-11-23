@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useT } from '../../i18n/useT';
-import { carcassDims, layoutSections } from '../../lib/geometry';
+import { activeWardrobe, carcassDims, layoutSections } from '../../lib/geometry';
 import { useWardrobe, type CameraPreset } from '../../store/wardrobeStore';
 import { readDragKind, type DragKind } from '../panels/dragKinds';
 import { cameraRef } from './cameraRef';
@@ -29,7 +29,8 @@ function screenToWardrobe(clientX: number, clientY: number, el: HTMLElement): { 
 
 export function dropOnModel(kind: DragKind, xMm: number, yMm: number) {
   const st = useWardrobe.getState();
-  const w = st.wardrobe;
+  // В 2D-виде спереди добавляем в редактируемое крыло, в 3D — в основное
+  const w = st.view === 'front' ? activeWardrobe(st.wardrobe, st.wing) : st.wardrobe;
   const d = carcassDims(w);
   const layout = layoutSections(w);
   const sec = layout.find((s) => xMm >= s.x - d.t && xMm <= s.x + s.width + d.t) ?? (xMm < w.width / 2 ? layout[0] : layout[layout.length - 1]);

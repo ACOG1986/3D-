@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeT, type Lang } from '../i18n';
-import { buildSheets, esc, sheetScale } from './drawing';
+import { buildSheets, esc, sheetCount, sheetScale } from './drawing';
 import { createWardrobe } from './geometry';
 
 describe('buildSheets', () => {
@@ -47,4 +47,28 @@ describe('buildSheets', () => {
       expect(sheets.join('')).not.toContain('NaN');
     }
   });
+
+  it('угловой шкаф: 4 листа, лист бокового крыла и план', () => {
+    const c = createWardrobe('corner', 'Угол');
+    expect(c.corner).toBeDefined();
+    expect(sheetCount(c)).toBe(4);
+    const sheets = buildSheets(c, makeT('ru'), 'ru');
+    expect(sheets).toHaveLength(4);
+    expect(sheets[0]).toContain('План (вид сверху)');
+    expect(sheets[0]).toContain(`>${c.corner!.width}<`);
+    expect(sheets[1]).toContain('Боковое крыло: вид спереди');
+    expect(sheets[1]).toContain(`>${c.corner!.width}<`);
+    // нумерация листов: «4» как общее количество в основной надписи
+    for (const s of sheets) expect(s).toMatch(/>4<\/text>/);
+    expect(sheets.join('')).not.toContain('NaN');
+  });
+
+  it('ХДФ попадает в схему раскроя на своём листе 2800×2070', () => {
+    const sheets = buildSheets(w, makeT('ru'), 'ru');
+    const cut = sheets[sheets.length - 1];
+    expect(cut).toContain('ХДФ');
+    expect(cut).toContain('2800×2070');
+    expect(sheetCount(w)).toBe(3);
+  });
 });
+

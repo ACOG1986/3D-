@@ -10,7 +10,7 @@ export interface MaterialPickerProps {
   allowNone?: { label: string; selected: boolean; onSelect: () => void };
 }
 
-function swatchStyle(m: Material): React.CSSProperties {
+export function swatchStyle(m: Material): React.CSSProperties {
   if (m.kind === 'mirror') return { background: 'linear-gradient(135deg,#f8fafc,#94a3b8 50%,#e2e8f0)' };
   if (m.kind === 'glass') return { background: m.color, opacity: 0.75 };
   if (m.grain)

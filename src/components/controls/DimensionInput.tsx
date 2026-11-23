@@ -1,3 +1,4 @@
+import { HelpTip } from '../onboarding/HelpTip';
 import { useEffect, useId, useRef, useState } from 'react';
 
 export interface DimensionInputProps {
@@ -14,6 +15,8 @@ export interface DimensionInputProps {
   autoFocus?: boolean;
   onCancel?: () => void;
   disabled?: boolean;
+  /** Пояснение простыми словами (значок «i»). */
+  help?: string;
 }
 
 /**
@@ -33,6 +36,7 @@ export function DimensionInput({
   autoFocus,
   onCancel,
   disabled,
+  help,
 }: DimensionInputProps) {
   const id = useId();
   const [text, setText] = useState(String(value));
@@ -62,7 +66,10 @@ export function DimensionInput({
 
   return (
     <label htmlFor={id} className={compact ? 'flex items-center gap-1' : 'flex flex-col gap-1'}>
-      <span className={hideLabel ? 'sr-only' : 'text-xs text-slate-500 dark:text-slate-400'}>{label}</span>
+      <span className={hideLabel ? 'sr-only' : 'flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400'}>
+        {label}
+        {help && !hideLabel && <HelpTip term={label} text={help} />}
+      </span>
       <span className="relative flex items-center">
         <input
           ref={ref}

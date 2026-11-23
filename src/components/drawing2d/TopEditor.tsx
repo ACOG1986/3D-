@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '../../i18n/useT';
-import { carcassDims, computeDoors, doorZ, layoutSections, LIMITS, SLIDING_ZONE } from '../../lib/geometry';
+import { carcassDims, computeDoors, computePanels, doorZ, layoutSections, LIMITS, SLIDING_ZONE, wingWardrobe } from '../../lib/geometry';
 import { sameRef, useWardrobe } from '../../store/wardrobeStore';
-import type { EntityRef } from '../../types/wardrobe';
+import type { Door, EntityRef, Panel, Wardrobe } from '../../types/wardrobe';
 import { DimensionInput } from '../controls/DimensionInput';
 import { Dimension, svgToContainer, type InlineEditState } from './Dimension';
 
@@ -20,6 +20,7 @@ export function TopEditor() {
   const selection = useWardrobe((s) => s.selection);
   const select = useWardrobe((s) => s.select);
   const patch = useWardrobe((s) => s.patch);
+  const setCorner = useWardrobe((s) => s.setCorner);
   const showDoors = useWardrobe((s) => s.showDoors);
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -29,12 +30,13 @@ export function TopEditor() {
   const d = useMemo(() => carcassDims(w), [w]);
   const layout = useMemo(() => layoutSections(w), [w]);
   const doors = useMemo(() => computeDoors(w), [w]);
+  const wing = useMemo(() => buildWing(w), [w]);
 
   const W = w.width;
   const D = w.depth;
   const th = d.t;
   // Стена (z = 0) сверху, фасад внизу: координата SVG = z. Распашные двери открываются вниз.
-  const swingReach = doors.length && doors[0].kind !== 'sliding' ? Math.max(...doors.map((x) => x.width)) : 0;
+  const swingReach = Math.max(doors.length && doors[0].kind !== 'sliding' ? Math.max(...doors.map((x) => x.width)) : 0, wing ? wing.width : 0);
   const fs = Math.max(W, D + swingReach) * 0.022;
   const margin = fs * 5;
   const Z = (z: number) => z;
@@ -57,7 +59,7 @@ export function TopEditor() {
     <div ref={boxRef} className="relative flex h-full w-full flex-col">
       <svg
         ref={svgRef}
-        viewBox={`${-margin * 1.2} ${-margin} ${W + margin * 2.6} ${D + swingReach + margin * 2.4}`}
+        viewBox={`${-margin * 1.6} ${-margin} ${W + margin * 3.2} ${D + swingReach + margin * 2.4}`}
         preserveAspectRatio="xMidYMid meet"
         className="min-h-0 flex-1 select-none text-slate-700 dark:text-slate-200 [--dim-halo:#eef1f5] dark:[--dim-halo:#0f172a]"
         role="img"
@@ -69,7 +71,7 @@ export function TopEditor() {
             <path d="M100 0H0V100" fill="none" className="stroke-slate-300/50 dark:stroke-slate-600/40" strokeWidth={1} />
           </pattern>
         </defs>
-        <rect x={-margin * 1.2} y={-margin} width={W + margin * 2.6} height={D + swingReach + margin * 2.4} fill="url(#te-grid)" pointerEvents="none" />
+        <rect x={-margin * 1.6} y={-margin} width={W + margin * 3.2} height={D + swingReach + margin * 2.4} fill="url(#te-grid)" pointerEvents="none" />
         {/* стена */}
         <line x1={-margin} x2={W + margin} y1={Z(0)} y2={Z(0)} className="stroke-slate-400" strokeWidth={3} vectorEffect="non-scaling-stroke" />
 
@@ -164,6 +166,86 @@ export function TopEditor() {
             );
           })}
 
+        {/* боковое крыло углового шкафа */}
+        {wing && (
+          <g>
+            {wing.sections.map((sec) => {
+              const ref: EntityRef = { type: 'section', sectionId: sec.id };
+              return (
+                <rect
+                  key={sec.id}
+                  x={sec.x}
+                  y={sec.z}
+                  width={sec.sx}
+                  height={sec.sz}
+                  className={sameRef(selection, ref) ? 'fill-blue-500/15' : 'fill-slate-100 hover:fill-blue-500/5 dark:fill-slate-800/60'}
+                  role="button"
+                  aria-label={`${t('corner.wingShort')}: ${t('right.section', { n: sec.n })}`}
+                  onPointerDown={pick(ref)}
+                />
+              );
+            })}
+            <rect x={wing.outline.x} y={wing.outline.z} width={wing.outline.sx} height={wing.outline.sz} fill="none" className="stroke-slate-400" strokeDasharray="12 8" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+            <g className={carcassSel ? SEL : BOARD} onPointerDown={pick({ type: 'carcass' })} role="button" aria-label={t('corner.title')}>
+              {wing.boards.map((p) => (
+                <rect key={p.key} x={p.x} y={p.z} width={p.sx} height={p.sz} vectorEffect="non-scaling-stroke" />
+              ))}
+            </g>
+            {wing.dividers.map((p) => {
+              const ref = p.ref;
+              const n = ref.type === 'divider' ? ref.index + 1 : 0;
+              return (
+                <rect
+                  key={p.key}
+                  x={p.x}
+                  y={p.z}
+                  width={p.sx}
+                  height={p.sz}
+                  className={`${sameRef(selection, ref) ? SEL : BOARD} cursor-pointer`}
+                  vectorEffect="non-scaling-stroke"
+                  role="button"
+                  aria-label={`${t('corner.wingShort')}: ${t('right.divider', { n })}`}
+                  onPointerDown={pick(ref)}
+                />
+              );
+            })}
+            {showDoors &&
+              wing.doors.map((door) => {
+                const ref = door.panel.ref;
+                const sel = sameRef(selection, ref);
+                const p = door.panel;
+                return (
+                  <g key={p.key} role="button" aria-label={t('right.door', { n: ref.type === 'door' ? ref.index + 1 : 0 })} onPointerDown={pick(ref)} className="cursor-pointer">
+                    {door.arc && <path d={door.arc} fill="none" className="stroke-sky-500/60" strokeDasharray="10 8" vectorEffect="non-scaling-stroke" />}
+                    <rect
+                      x={p.x}
+                      y={p.z}
+                      width={p.sx}
+                      height={p.sz}
+                      className={sel ? SEL : 'fill-sky-100 stroke-sky-600 dark:fill-sky-900/60 dark:stroke-sky-400'}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </g>
+                );
+              })}
+            <Dimension
+              x1={wing.left ? 0 : W}
+              y1={Z(D)}
+              x2={wing.left ? 0 : W}
+              y2={Z(D + wing.width)}
+              offset={wing.left ? fs * 2.2 : -fs * 2.2}
+              text={String(wing.width)}
+              fontSize={fs}
+              ariaLabel={`${t('corner.width')}: ${wing.width} ${t('mm')}`}
+              onClick={() =>
+                openEdit(t('corner.width'), wing.width, D + 300, LIMITS.width.max, wing.left ? -fs * 2.6 : W + fs * 2.6, D + wing.width / 2, (v) =>
+                  setCorner({ width: Math.round(v) }),
+                )
+              }
+            />
+          </g>
+        )}
+
         {/* габариты */}
         <Dimension
           x1={0}
@@ -226,4 +308,58 @@ export function TopEditor() {
       )}
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Боковое крыло в мировых координатах плана                            */
+/* ------------------------------------------------------------------ */
+
+interface WingPlan {
+  left: boolean;
+  width: number;
+  outline: { x: number; z: number; sx: number; sz: number };
+  sections: { id: string; n: number; x: number; z: number; sx: number; sz: number }[];
+  boards: Panel[];
+  dividers: Panel[];
+  doors: { panel: Panel; arc: string | null }[];
+}
+
+/** Готовит геометрию бокового крыла для плана (null — шкаф не угловой). */
+function buildWing(w: Wardrobe): WingPlan | null {
+  const wing = wingWardrobe(w);
+  if (!wing || !w.corner) return null;
+  const left = w.corner.side !== 'right';
+  const D = w.depth;
+  const W2 = wing.width;
+  const wd = carcassDims(wing);
+  const panels = computePanels(w).filter((p) => p.wing);
+  // локальная точка крыла (x вдоль крыла, z от стены) → мировые (x, z)
+  const toWorld = (lx: number, lz: number) => (left ? { x: lz, z: D + W2 - lx } : { x: w.width - lz, z: D + lx });
+  const sections = layoutSections(wing).map((sl) => {
+    const a = toWorld(sl.x, wd.bt);
+    const b = toWorld(sl.x + sl.width, wd.bt + wd.interiorDepth);
+    return { id: sl.id, n: sl.index + 1, x: Math.min(a.x, b.x), z: Math.min(a.z, b.z), sx: Math.abs(b.x - a.x), sz: Math.abs(b.z - a.z) };
+  });
+  const o1 = toWorld(0, 0);
+  const o2 = toWorld(W2, wd.carcassDepth);
+  const outline = { x: Math.min(o1.x, o2.x), z: Math.min(o1.z, o2.z), sx: Math.abs(o2.x - o1.x), sz: Math.abs(o2.z - o1.z) };
+  const boards = panels.filter((p) => p.name === 'side' || p.name === 'back');
+  const dividers = panels.filter((p) => p.name === 'divider');
+  const localDoors = computeDoors(wing);
+  const doorPanels = panels.filter((p) => p.group === 'facade');
+  const dir = left ? 1 : -1; // фасад крыла смотрит в +x (слева) или −x (справа)
+  const doors = doorPanels.map((panel, i) => {
+    const ld: Door | undefined = localDoors[i];
+    if (!ld || ld.kind !== 'swing') return { panel, arc: null };
+    const fx = left ? panel.x + panel.sx : panel.x;
+    const hingeLocal = ld.hingeSide === 'left' ? ld.x : ld.x + ld.width;
+    const openLocal = ld.hingeSide === 'left' ? ld.x + ld.width : ld.x;
+    const zh = toWorld(hingeLocal, 0).z;
+    const zo = toWorld(openLocal, 0).z;
+    const r = ld.width;
+    // направление дуги: знак векторного произведения (центр — петля)
+    const sweep = -(zo - zh) * dir > 0 ? 1 : 0;
+    return { panel, arc: `M ${fx} ${zo} A ${r} ${r} 0 0 ${sweep} ${fx + dir * r} ${zh} L ${fx} ${zh}` };
+  });
+  return { left, width: W2, outline, sections, boards, dividers, doors };
 }
