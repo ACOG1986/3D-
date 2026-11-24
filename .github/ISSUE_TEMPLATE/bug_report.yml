@@ -1,0 +1,36 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the problem. Screenshots help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a corner wardrobe
+        2. Switch to the Front view
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+  - type: textarea
+    id: config
+    attributes:
+      label: Project JSON (optional)
+      description: Export the project via "Download → JSON" and paste it here if the bug depends on a specific configuration.
+      render: json
+  - type: input
+    id: env
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 131, Windows 11
