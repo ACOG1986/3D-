@@ -4,7 +4,8 @@ import { FrontEditor } from '../components/drawing2d/FrontEditor';
 import { TopEditor } from '../components/drawing2d/TopEditor';
 import { BottomPanel } from '../components/panels/BottomPanel';
 import { DndHint } from '../components/onboarding/DndHint';
-import { Tour, tourSeen } from '../components/onboarding/Tour';
+import { Tour } from '../components/onboarding/Tour';
+import { tourSeen } from '../components/onboarding/tourStorage';
 import { HotkeysDialog } from '../components/panels/HotkeysDialog';
 import { LeftPanel } from '../components/panels/LeftPanel';
 import { RightPanel } from '../components/panels/RightPanel';
@@ -116,10 +117,20 @@ export function Editor({ id }: { id: string }) {
             {view === 'top' && <TopEditor />}
             {view === 'drawing' && <DrawingView />}
             <div className="absolute bottom-3 left-3 flex gap-1 lg:hidden">
-              <button type="button" className="chip" aria-expanded={side === 'left'} onClick={() => setSide(side === 'left' ? null : 'left')}>
+              <button
+                type="button"
+                className="chip"
+                aria-expanded={side === 'left'}
+                onClick={() => setSide(side === 'left' ? null : 'left')}
+              >
                 ☰ {t('left.fill')}
               </button>
-              <button type="button" className="chip" aria-expanded={side === 'right'} onClick={() => setSide(side === 'right' ? null : 'right')}>
+              <button
+                type="button"
+                className="chip"
+                aria-expanded={side === 'right'}
+                onClick={() => setSide(side === 'right' ? null : 'right')}
+              >
                 ⚙ {t('right.title')}
               </button>
             </div>

@@ -18,7 +18,8 @@ export function DrawingView() {
   const sheet = useWardrobe((s) => s.sheet);
   const setSheet = useWardrobe((s) => s.setSheet);
   const [zoomIdx, setZoomIdx] = useState(2);
-  const sheets = useMemo(() => buildSheets(w, t, lang), [w, t, lang]);
+  const specMode = useWardrobe((s) => s.specMode);
+  const sheets = useMemo(() => buildSheets(w, t, lang, { specMode }), [w, t, lang, specMode]);
   const index = Math.min(Math.max(sheet, 1), sheets.length) - 1;
   const zoom = ZOOMS[zoomIdx];
 

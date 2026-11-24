@@ -57,7 +57,14 @@ function shelves(from: number, to: number, step: number, t: number): SectionItem
 }
 
 /** Наполнение одной секции по выбранному сценарию. */
-function fillSection(fill: FillPreset, index: number, count: number, innerH: number, t: number, slide: Wardrobe['defaultSlide']): SectionItem[] {
+function fillSection(
+  fill: FillPreset,
+  index: number,
+  count: number,
+  innerH: number,
+  t: number,
+  slide: Wardrobe['defaultSlide'],
+): SectionItem[] {
   const top = innerH >= 1700 ? Math.floor((innerH - 450) / 10) * 10 : null;
   const region = top ?? innerH;
   const items: SectionItem[] = top !== null ? [fixedShelf(top)] : [];

@@ -5,8 +5,9 @@ import { sameRef, useActiveWardrobe, useWardrobe } from '../../store/wardrobeSto
 import type { EntityRef, SectionItem, SectionLayout } from '../../types/wardrobe';
 import { DimensionInput } from '../controls/DimensionInput';
 import { readDragKind } from '../panels/dragKinds';
-import { dropOnModel } from '../viewer3d/Scene';
-import { clientToSvg, Dimension, svgToContainer, type InlineEditState } from './Dimension';
+import { dropOnModel } from '../viewer3d/dropOnModel';
+import { Dimension, type InlineEditState } from './Dimension';
+import { clientToSvg, svgToContainer } from './svgCoords';
 
 type Drag =
   | { type: 'item'; sectionId: string; itemId: string; grab: number; moved: boolean; overlap: boolean }
@@ -55,8 +56,7 @@ export function FrontEditor() {
   const Y = (mm: number) => H - mm; // мм от пола → координата SVG
   const { t: th, innerBottom, innerHeight } = d;
 
-  const selSectionId =
-    selection?.type === 'section' ? selection.sectionId : selection?.type === 'item' ? selection.sectionId : null;
+  const selSectionId = selection?.type === 'section' ? selection.sectionId : selection?.type === 'item' ? selection.sectionId : null;
 
   const toMm = (clientX: number, clientY: number) => {
     const svg = svgRef.current;
@@ -175,7 +175,9 @@ export function FrontEditor() {
           </g>
         );
       case 'rod': {
-        const cls2 = selected ? 'stroke-blue-600 fill-blue-600' : 'stroke-slate-500 fill-slate-500 dark:stroke-slate-300 dark:fill-slate-300';
+        const cls2 = selected
+          ? 'stroke-blue-600 fill-blue-600'
+          : 'stroke-slate-500 fill-slate-500 dark:stroke-slate-300 dark:fill-slate-300';
         return (
           <g key={item.id} {...common}>
             <line x1={x + 8} x2={x + sw - 8} y1={Y(y0)} y2={Y(y0)} className={cls2} strokeWidth={3} vectorEffect="non-scaling-stroke" />
@@ -191,8 +193,24 @@ export function FrontEditor() {
           <g key={item.id} {...common}>
             <line x1={x + 10} x2={x + sw - 10} y1={Y(y0)} y2={Y(y0)} className={cls2} strokeWidth={3} vectorEffect="non-scaling-stroke" />
             <line x1={x + 4} x2={x + 10} y1={Y(y0 + 40)} y2={Y(y0)} className={cls2} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-            <line x1={x + sw - 4} x2={x + sw - 10} y1={Y(y0 + 40)} y2={Y(y0)} className={cls2} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-            <line x1={x + 4} x2={x + 4} y1={Y(y0 + 40)} y2={Y(y0 - 60)} className={cls2} strokeDasharray="6 6" vectorEffect="non-scaling-stroke" />
+            <line
+              x1={x + sw - 4}
+              x2={x + sw - 10}
+              y1={Y(y0 + 40)}
+              y2={Y(y0)}
+              className={cls2}
+              strokeWidth={2}
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={x + 4}
+              x2={x + 4}
+              y1={Y(y0 + 40)}
+              y2={Y(y0 - 60)}
+              className={cls2}
+              strokeDasharray="6 6"
+              vectorEffect="non-scaling-stroke"
+            />
             <rect x={x} y={Y(y0 + 40)} width={sw} height={100} fill="transparent" />
           </g>
         );
@@ -295,9 +313,24 @@ export function FrontEditor() {
         </defs>
 
         {/* сетка 10 мм */}
-        <rect x={-margin * 1.4} y={-margin} width={W + margin * 2.4} height={H + margin * 2.2} fill="url(#fe-grid100)" pointerEvents="none" />
+        <rect
+          x={-margin * 1.4}
+          y={-margin}
+          width={W + margin * 2.4}
+          height={H + margin * 2.2}
+          fill="url(#fe-grid100)"
+          pointerEvents="none"
+        />
         {/* пол */}
-        <line x1={-margin} x2={W + margin} y1={H} y2={H} className="stroke-slate-400" vectorEffect="non-scaling-stroke" strokeDasharray="8 6" />
+        <line
+          x1={-margin}
+          x2={W + margin}
+          y1={H}
+          y2={H}
+          className="stroke-slate-400"
+          vectorEffect="non-scaling-stroke"
+          strokeDasharray="8 6"
+        />
 
         {/* задняя стенка — фон, клик по пустой секции выбирает её */}
         <rect x={0} y={0} width={W} height={H} className="fill-slate-100 dark:fill-slate-800/60" pointerEvents="none" />
@@ -310,7 +343,13 @@ export function FrontEditor() {
               y={Y(innerBottom + innerHeight)}
               width={sl.width}
               height={innerHeight}
-              className={sameRef(selection, ref) ? 'fill-blue-500/10' : selSectionId === sl.id ? 'fill-blue-500/5' : 'fill-transparent hover:fill-blue-500/5'}
+              className={
+                sameRef(selection, ref)
+                  ? 'fill-blue-500/10'
+                  : selSectionId === sl.id
+                    ? 'fill-blue-500/5'
+                    : 'fill-transparent hover:fill-blue-500/5'
+              }
               role="button"
               aria-label={t('right.section', { n: sl.index + 1 })}
               onPointerDown={(e) => {
@@ -341,19 +380,46 @@ export function FrontEditor() {
         {/* оси при перетаскивании */}
         {draggedSection && dragged && (
           <g pointerEvents="none" className="stroke-blue-500" strokeDasharray="10 8">
-            <line x1={draggedSection.x + draggedSection.width / 2} x2={draggedSection.x + draggedSection.width / 2} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
-            <line x1={-margin} x2={W + margin} y1={Y(innerBottom + dragged.y)} y2={Y(innerBottom + dragged.y)} vectorEffect="non-scaling-stroke" />
+            <line
+              x1={draggedSection.x + draggedSection.width / 2}
+              x2={draggedSection.x + draggedSection.width / 2}
+              y1={0}
+              y2={H}
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={-margin}
+              x2={W + margin}
+              y1={Y(innerBottom + dragged.y)}
+              y2={Y(innerBottom + dragged.y)}
+              vectorEffect="non-scaling-stroke"
+            />
           </g>
         )}
         {dividerX !== null && (
-          <line x1={dividerX} x2={dividerX} y1={-margin} y2={H + margin} className="stroke-blue-500" strokeDasharray="10 8" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+          <line
+            x1={dividerX}
+            x2={dividerX}
+            y1={-margin}
+            y2={H + margin}
+            className="stroke-blue-500"
+            strokeDasharray="10 8"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
         )}
 
         {/* перегородки */}
         {layout.slice(0, -1).map((sl, i) => {
           const ref: EntityRef = divRef(i);
           return (
-            <g key={`div-${i}`} onPointerDown={(e) => startDividerDrag(e, i)} className="cursor-ew-resize" role="button" aria-label={t('right.divider', { n: i + 1 })}>
+            <g
+              key={`div-${i}`}
+              onPointerDown={(e) => startDividerDrag(e, i)}
+              className="cursor-ew-resize"
+              role="button"
+              aria-label={t('right.divider', { n: i + 1 })}
+            >
               <rect
                 x={sl.x + sl.width}
                 y={Y(innerBottom + innerHeight)}
@@ -416,7 +482,9 @@ export function FrontEditor() {
           text={String(W)}
           fontSize={fs}
           ariaLabel={`${t('right.width')}: ${W} ${t('mm')}`}
-          onClick={() => openEdit(t('right.width'), W, LIMITS.width.min, LIMITS.width.max, W / 2, -fs * 2.6, (v) => patch({ width: Math.round(v) }))}
+          onClick={() =>
+            openEdit(t('right.width'), W, LIMITS.width.min, LIMITS.width.max, W / 2, -fs * 2.6, (v) => patch({ width: Math.round(v) }))
+          }
         />
         <Dimension
           x1={0}
@@ -427,7 +495,9 @@ export function FrontEditor() {
           text={String(H)}
           fontSize={fs}
           ariaLabel={`${t('right.height')}: ${H} ${t('mm')}`}
-          onClick={() => openEdit(t('right.height'), H, LIMITS.height.min, LIMITS.height.max, -fs * 3.6, H / 2, (v) => patch({ height: Math.round(v) }))}
+          onClick={() =>
+            openEdit(t('right.height'), H, LIMITS.height.min, LIMITS.height.max, -fs * 3.6, H / 2, (v) => patch({ height: Math.round(v) }))
+          }
         />
         {/* ширины секций */}
         {layout.map((sl) => (

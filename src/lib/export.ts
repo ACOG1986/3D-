@@ -4,7 +4,7 @@
  */
 import type { Lang, TFunction } from '../i18n';
 import type { Wardrobe } from '../types/wardrobe';
-import { buildSheets, SHEET_H, SHEET_W } from './drawing';
+import { buildSheets, SHEET_H, SHEET_W, type SheetOptions } from './drawing';
 import { exportProjectJson } from './projects';
 
 const FONT_FAMILY = 'PT Sans Narrow';
@@ -12,7 +12,11 @@ const FONT_FILES = { normal: 'PTSansNarrow-Regular.ttf', bold: 'PTSansNarrow-Bol
 
 export function safeFileName(name: string): string {
   // Только буквы (включая кириллицу и литовские), цифры, «-» и «_»: иначе браузер отбрасывает имя
-  const s = name.trim().replace(/[^\p{L}\p{N}_-]+/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const s = name
+    .trim()
+    .replace(/[^\p{L}\p{N}_-]+/gu, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
   return s || 'wardrobe';
 }
 
@@ -60,7 +64,7 @@ function parseSvg(svg: string): SVGSVGElement {
   return el as unknown as SVGSVGElement;
 }
 
-export async function exportPdf(w: Wardrobe, t: TFunction, lang: Lang): Promise<void> {
+export async function exportPdf(w: Wardrobe, t: TFunction, lang: Lang, opts: SheetOptions = {}): Promise<void> {
   const [{ jsPDF }, , regular, bold] = await Promise.all([
     import('jspdf'),
     import('svg2pdf.js'),
@@ -75,7 +79,7 @@ export async function exportPdf(w: Wardrobe, t: TFunction, lang: Lang): Promise<
   doc.setFont(FONT_FAMILY, 'normal');
   doc.setProperties({ title: w.name, subject: `${w.width}×${w.height}×${w.depth}`, creator: t('app.title') });
 
-  const sheets = buildSheets(w, t, lang);
+  const sheets = buildSheets(w, t, lang, opts);
   // svg2pdf надёжнее работает с элементом, вставленным в документ
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:0;height:0;overflow:hidden';
@@ -95,8 +99,8 @@ export async function exportPdf(w: Wardrobe, t: TFunction, lang: Lang): Promise<
   downloadBlob(doc.output('blob'), `${safeFileName(w.name)}.pdf`);
 }
 
-export function exportSvg(w: Wardrobe, t: TFunction, lang: Lang, index: number): void {
-  const svg = buildSheets(w, t, lang)[index];
+export function exportSvg(w: Wardrobe, t: TFunction, lang: Lang, index: number, opts: SheetOptions = {}): void {
+  const svg = buildSheets(w, t, lang, opts)[index];
   if (!svg) return;
   const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n`, svg], { type: 'image/svg+xml;charset=utf-8' });
   downloadBlob(blob, `${safeFileName(w.name)}_${index + 1}.svg`);
@@ -137,8 +141,8 @@ export async function renderSheetPng(svg: string, dpi = 200): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
 }
 
-export async function exportPng(w: Wardrobe, t: TFunction, lang: Lang, index: number): Promise<void> {
-  const svg = buildSheets(w, t, lang)[index];
+export async function exportPng(w: Wardrobe, t: TFunction, lang: Lang, index: number, opts: SheetOptions = {}): Promise<void> {
+  const svg = buildSheets(w, t, lang, opts)[index];
   if (!svg) return;
   const blob = await renderSheetPng(svg);
   downloadBlob(blob, `${safeFileName(w.name)}_${index + 1}.png`);

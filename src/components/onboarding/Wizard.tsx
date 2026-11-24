@@ -7,7 +7,7 @@ import { saveProject } from '../../lib/projects';
 import { useWardrobe } from '../../store/wardrobeStore';
 import type { WardrobeType } from '../../types/wardrobe';
 import { DimensionInput } from '../controls/DimensionInput';
-import { swatchStyle } from '../controls/MaterialPicker';
+import { swatchStyle } from '../controls/swatch';
 import { buildWardrobe, defaultAnswers, SIZE_PRESETS, type FillPreset, type WizardAnswers } from './buildWardrobe';
 import { HelpTip } from './HelpTip';
 import { MiniPreview } from './MiniPreview';
@@ -30,7 +30,17 @@ const STEPS: MessageKey[] = ['wiz.s1', 'wiz.s2', 'wiz.s3', 'wiz.s4', 'wiz.s5'];
 
 function Pictogram({ d, size = 48 }: { d: string; size?: number }) {
   return (
-    <svg viewBox="0 0 48 48" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" aria-hidden>
+    <svg
+      viewBox="0 0 48 48"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      aria-hidden
+    >
       <path d={d} />
     </svg>
   );
@@ -128,7 +138,11 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
   const questions: MessageKey[] = ['wiz.q1', 'wiz.q2', 'wiz.q3', 'wiz.q4', 'wiz.q5'];
   const mm = t('mm');
   const fillLabel: Record<FillPreset, MessageKey> = { hang: 'wiz.fill.hang', shelves: 'wiz.fill.shelves', balanced: 'wiz.fill.balanced' };
-  const fillHint: Record<FillPreset, MessageKey> = { hang: 'wiz.fill.hangHint', shelves: 'wiz.fill.shelvesHint', balanced: 'wiz.fill.balancedHint' };
+  const fillHint: Record<FillPreset, MessageKey> = {
+    hang: 'wiz.fill.hangHint',
+    shelves: 'wiz.fill.shelvesHint',
+    balanced: 'wiz.fill.balancedHint',
+  };
 
   return (
     <dialog
@@ -160,7 +174,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                   className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
                 >
                   <span className={`block h-1.5 rounded-full ${i <= step ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
-                  <span className={`mt-1 block truncate text-[11px] ${i === step ? 'font-semibold text-blue-700 dark:text-blue-300' : 'text-slate-500'}`}>
+                  <span
+                    className={`mt-1 block truncate text-[11px] ${i === step ? 'font-semibold text-blue-700 dark:text-blue-300' : 'text-slate-500'}`}
+                  >
                     {i + 1}. {t(k)}
                   </span>
                 </button>
@@ -189,7 +205,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                       onClick={() => set({ type, depth: type === 'sliding' && a.depth < 450 ? 600 : a.depth })}
                       onDoubleClick={() => setStep(1)}
                       className={`flex items-start gap-3 rounded-lg border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                        on ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950' : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
+                        on
+                          ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950'
+                          : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
                       }`}
                     >
                       <span className={on ? 'text-blue-600' : 'text-slate-500'}>
@@ -197,7 +215,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                       </span>
                       <span>
                         <span className="block font-medium">{t(`type.${type}`)}</span>
-                        <span className="mt-0.5 block text-xs leading-snug text-slate-600 dark:text-slate-400">{t(`wiz.type.${type}`)}</span>
+                        <span className="mt-0.5 block text-xs leading-snug text-slate-600 dark:text-slate-400">
+                          {t(`wiz.type.${type}`)}
+                        </span>
                       </span>
                     </button>
                   );
@@ -215,7 +235,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                       role="radio"
                       aria-checked={preset === p.key}
                       className={`rounded-lg border px-3 py-2 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                        preset === p.key ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950' : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
+                        preset === p.key
+                          ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950'
+                          : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
                       }`}
                       onClick={() => {
                         setPreset(p.key);
@@ -249,7 +271,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                           set({ [k]: Math.round(v) } as Partial<WizardAnswers>);
                         }}
                       />
-                      <span className="text-[11px] leading-snug text-slate-500">{t(k === 'width' ? 'wiz.widthHint' : k === 'height' ? 'wiz.heightHint' : 'wiz.depthHint')}</span>
+                      <span className="text-[11px] leading-snug text-slate-500">
+                        {t(k === 'width' ? 'wiz.widthHint' : k === 'height' ? 'wiz.heightHint' : 'wiz.depthHint')}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -289,7 +313,9 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                       aria-checked={on}
                       onClick={() => set({ fill })}
                       className={`flex flex-col gap-2 rounded-lg border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                        on ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950' : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
+                        on
+                          ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 dark:bg-blue-950'
+                          : 'border-slate-200 hover:border-slate-400 dark:border-slate-700'
                       }`}
                     >
                       <span className={on ? 'text-blue-600' : 'text-slate-500'}>
@@ -312,7 +338,12 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                   onChange={(body) => set({ body })}
                   help={<HelpTip term={t('left.body')} text={t('help.ldsp')} />}
                 />
-                <BigSwatches label={t('wiz.fronts')} value={a.facade} materials={facadeMaterials()} onChange={(facade) => set({ facade })} />
+                <BigSwatches
+                  label={t('wiz.fronts')}
+                  value={a.facade}
+                  materials={facadeMaterials()}
+                  onChange={(facade) => set({ facade })}
+                />
               </div>
             )}
 
@@ -320,7 +351,12 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
               <div className="flex flex-col gap-4">
                 <label className="flex max-w-md flex-col gap-1">
                   <span className="text-xs text-slate-500">{t('wiz.name')}</span>
-                  <input className="input" value={a.name} onChange={(e) => set({ name: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && create()} />
+                  <input
+                    className="input"
+                    value={a.name}
+                    onChange={(e) => set({ name: e.target.value })}
+                    onKeyDown={(e) => e.key === 'Enter' && create()}
+                  />
                 </label>
                 <dl className="grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                   <dt className="text-slate-500">{t('wiz.sum.type')}</dt>
@@ -337,12 +373,17 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
                   <dt className="text-slate-500">{t('wiz.sum.doors')}</dt>
                   <dd>{preview.doors.kind === 'none' ? 0 : preview.doors.count + (preview.corner?.doorCount ?? 0)}</dd>
                 </dl>
-                <p className="max-w-md rounded-lg bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950/60 dark:text-blue-100">{t('wiz.sum.next')}</p>
+                <p className="max-w-md rounded-lg bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950/60 dark:text-blue-100">
+                  {t('wiz.sum.next')}
+                </p>
               </div>
             )}
           </div>
 
-          <aside className="hidden border-l border-slate-200 bg-slate-50 p-4 md:block dark:border-slate-800 dark:bg-slate-950/50" aria-hidden>
+          <aside
+            className="hidden border-l border-slate-200 bg-slate-50 p-4 md:block dark:border-slate-800 dark:bg-slate-950/50"
+            aria-hidden
+          >
             <MiniPreview w={preview} className="h-72 w-full" />
             <p className="mt-2 text-center text-xs tabular-nums text-slate-500">
               {preview.width}×{preview.height}×{preview.depth} {mm}
@@ -360,7 +401,12 @@ export function Wizard({ open, onClose, initialType }: WizardProps) {
               {t('wiz.skip')}
             </button>
           )}
-          <button type="button" className={`btn btn-primary ${last ? 'ml-auto' : ''}`} onClick={() => (last ? create() : setStep(step + 1))} autoFocus>
+          <button
+            type="button"
+            className={`btn btn-primary ${last ? 'ml-auto' : ''}`}
+            onClick={() => (last ? create() : setStep(step + 1))}
+            autoFocus
+          >
             {last ? `✓ ${t('wiz.create')}` : `${t('wiz.next')} →`}
           </button>
         </div>

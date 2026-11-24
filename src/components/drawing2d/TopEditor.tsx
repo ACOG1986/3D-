@@ -4,7 +4,8 @@ import { carcassDims, computeDoors, computePanels, doorZ, layoutSections, LIMITS
 import { sameRef, useWardrobe } from '../../store/wardrobeStore';
 import type { Door, EntityRef, Panel, Wardrobe } from '../../types/wardrobe';
 import { DimensionInput } from '../controls/DimensionInput';
-import { Dimension, svgToContainer, type InlineEditState } from './Dimension';
+import { Dimension, type InlineEditState } from './Dimension';
+import { svgToContainer } from './svgCoords';
 
 const SEL = 'fill-blue-500/25 stroke-blue-600 dark:stroke-blue-400';
 const BOARD = 'fill-amber-50 stroke-slate-500 dark:fill-slate-700 dark:stroke-slate-400';
@@ -36,7 +37,10 @@ export function TopEditor() {
   const D = w.depth;
   const th = d.t;
   // Стена (z = 0) сверху, фасад внизу: координата SVG = z. Распашные двери открываются вниз.
-  const swingReach = Math.max(doors.length && doors[0].kind !== 'sliding' ? Math.max(...doors.map((x) => x.width)) : 0, wing ? wing.width : 0);
+  const swingReach = Math.max(
+    doors.length && doors[0].kind !== 'sliding' ? Math.max(...doors.map((x) => x.width)) : 0,
+    wing ? wing.width : 0,
+  );
   const fs = Math.max(W, D + swingReach) * 0.022;
   const margin = fs * 5;
   const Z = (z: number) => z;
@@ -71,9 +75,24 @@ export function TopEditor() {
             <path d="M100 0H0V100" fill="none" className="stroke-slate-300/50 dark:stroke-slate-600/40" strokeWidth={1} />
           </pattern>
         </defs>
-        <rect x={-margin * 1.6} y={-margin} width={W + margin * 3.2} height={D + swingReach + margin * 2.4} fill="url(#te-grid)" pointerEvents="none" />
+        <rect
+          x={-margin * 1.6}
+          y={-margin}
+          width={W + margin * 3.2}
+          height={D + swingReach + margin * 2.4}
+          fill="url(#te-grid)"
+          pointerEvents="none"
+        />
         {/* стена */}
-        <line x1={-margin} x2={W + margin} y1={Z(0)} y2={Z(0)} className="stroke-slate-400" strokeWidth={3} vectorEffect="non-scaling-stroke" />
+        <line
+          x1={-margin}
+          x2={W + margin}
+          y1={Z(0)}
+          y2={Z(0)}
+          className="stroke-slate-400"
+          strokeWidth={3}
+          vectorEffect="non-scaling-stroke"
+        />
 
         {/* секции (клик — выбор секции) */}
         {layout.map((sl) => {
@@ -159,7 +178,13 @@ export function TopEditor() {
               arc = `M ${ex} ${front} A ${r} ${r} 0 0 ${sweep} ${hx} ${front + r} L ${hx} ${front}`;
             }
             return (
-              <g key={door.index} role="button" aria-label={t('right.door', { n: door.index + 1 })} onPointerDown={pick(ref)} className="cursor-pointer">
+              <g
+                key={door.index}
+                role="button"
+                aria-label={t('right.door', { n: door.index + 1 })}
+                onPointerDown={pick(ref)}
+                className="cursor-pointer"
+              >
                 {arc && <path d={arc} fill="none" className="stroke-sky-500/60" strokeDasharray="10 8" vectorEffect="non-scaling-stroke" />}
                 <rect x={door.x} y={top} width={door.width} height={door.thickness} className={cls} vectorEffect="non-scaling-stroke" />
               </g>
@@ -185,7 +210,17 @@ export function TopEditor() {
                 />
               );
             })}
-            <rect x={wing.outline.x} y={wing.outline.z} width={wing.outline.sx} height={wing.outline.sz} fill="none" className="stroke-slate-400" strokeDasharray="12 8" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+            <rect
+              x={wing.outline.x}
+              y={wing.outline.z}
+              width={wing.outline.sx}
+              height={wing.outline.sz}
+              fill="none"
+              className="stroke-slate-400"
+              strokeDasharray="12 8"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+            />
             <g className={carcassSel ? SEL : BOARD} onPointerDown={pick({ type: 'carcass' })} role="button" aria-label={t('corner.title')}>
               {wing.boards.map((p) => (
                 <rect key={p.key} x={p.x} y={p.z} width={p.sx} height={p.sz} vectorEffect="non-scaling-stroke" />
@@ -215,8 +250,22 @@ export function TopEditor() {
                 const sel = sameRef(selection, ref);
                 const p = door.panel;
                 return (
-                  <g key={p.key} role="button" aria-label={t('right.door', { n: ref.type === 'door' ? ref.index + 1 : 0 })} onPointerDown={pick(ref)} className="cursor-pointer">
-                    {door.arc && <path d={door.arc} fill="none" className="stroke-sky-500/60" strokeDasharray="10 8" vectorEffect="non-scaling-stroke" />}
+                  <g
+                    key={p.key}
+                    role="button"
+                    aria-label={t('right.door', { n: ref.type === 'door' ? ref.index + 1 : 0 })}
+                    onPointerDown={pick(ref)}
+                    className="cursor-pointer"
+                  >
+                    {door.arc && (
+                      <path
+                        d={door.arc}
+                        fill="none"
+                        className="stroke-sky-500/60"
+                        strokeDasharray="10 8"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    )}
                     <rect
                       x={p.x}
                       y={p.z}
@@ -238,8 +287,14 @@ export function TopEditor() {
               fontSize={fs}
               ariaLabel={`${t('corner.width')}: ${wing.width} ${t('mm')}`}
               onClick={() =>
-                openEdit(t('corner.width'), wing.width, D + 300, LIMITS.width.max, wing.left ? -fs * 2.6 : W + fs * 2.6, D + wing.width / 2, (v) =>
-                  setCorner({ width: Math.round(v) }),
+                openEdit(
+                  t('corner.width'),
+                  wing.width,
+                  D + 300,
+                  LIMITS.width.max,
+                  wing.left ? -fs * 2.6 : W + fs * 2.6,
+                  D + wing.width / 2,
+                  (v) => setCorner({ width: Math.round(v) }),
                 )
               }
             />
@@ -256,7 +311,9 @@ export function TopEditor() {
           text={String(W)}
           fontSize={fs}
           ariaLabel={`${t('right.width')}: ${W} ${t('mm')}`}
-          onClick={() => openEdit(t('right.width'), W, LIMITS.width.min, LIMITS.width.max, W / 2, -fs * 2.4, (v) => patch({ width: Math.round(v) }))}
+          onClick={() =>
+            openEdit(t('right.width'), W, LIMITS.width.min, LIMITS.width.max, W / 2, -fs * 2.4, (v) => patch({ width: Math.round(v) }))
+          }
         />
         <Dimension
           x1={W}
@@ -267,7 +324,9 @@ export function TopEditor() {
           text={String(D)}
           fontSize={fs}
           ariaLabel={`${t('right.depth')}: ${D} ${t('mm')}`}
-          onClick={() => openEdit(t('right.depth'), D, LIMITS.depth.min, LIMITS.depth.max, W + fs * 2.6, D / 2, (v) => patch({ depth: Math.round(v) }))}
+          onClick={() =>
+            openEdit(t('right.depth'), D, LIMITS.depth.min, LIMITS.depth.max, W + fs * 2.6, D / 2, (v) => patch({ depth: Math.round(v) }))
+          }
         />
         {/* ширины секций */}
         {layout.map((sl) => (

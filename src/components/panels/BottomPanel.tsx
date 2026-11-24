@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import { decimalSep, edgeLetters, formatIssue, formatNumber, hardwareName, partName } from '../../i18n';
 import { useT } from '../../i18n/useT';
-import { computeHardware, computePanels, computeSpec, edgeTotals, formatEdges, materialAreas, validate } from '../../lib/geometry';
+import {
+  computeHardware,
+  computePanels,
+  computeSpec,
+  edgeTotals,
+  formatEdges,
+  materialAreas,
+  specSize,
+  validate,
+} from '../../lib/geometry';
 import { materialName } from '../../lib/materials';
 import { useWardrobe } from '../../store/wardrobeStore';
 
@@ -13,6 +22,8 @@ export function BottomPanel() {
   const w = useWardrobe((s) => s.wardrobe);
   const lang = useWardrobe((s) => s.lang);
   const select = useWardrobe((s) => s.select);
+  const specMode = useWardrobe((s) => s.specMode);
+  const setSpecMode = useWardrobe((s) => s.setSpecMode);
   const [tab, setTab] = useState<Tab>('spec');
   const [open, setOpen] = useState(true);
 
@@ -39,7 +50,10 @@ export function BottomPanel() {
   ];
 
   return (
-    <section className="flex min-h-0 flex-col border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900" aria-label={t('bottom.spec')}>
+    <section
+      className="flex min-h-0 flex-col border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      aria-label={t('bottom.spec')}
+    >
       <div className="flex items-center gap-1 px-2 py-1" role="tablist">
         {tabs.map(([k, label]) => (
           <button
@@ -67,7 +81,20 @@ export function BottomPanel() {
       </div>
       {open && (
         <div className="max-h-44 min-h-0 overflow-auto px-2 pb-2 text-xs">
-          {tab === 'spec' && <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">{t('hint.specLegend')}</p>}
+          {tab === 'spec' && (
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <div className="seg" role="group" aria-label={t('spec.mode')}>
+                {(['order', 'cut'] as const).map((m) => (
+                  <button key={m} type="button" aria-pressed={specMode === m} onClick={() => setSpecMode(m)}>
+                    {t(m === 'order' ? 'spec.modeOrder' : 'spec.modeCut')}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {t(specMode === 'order' ? 'spec.modeHintOrder' : 'spec.modeHintCut')} {t('hint.specLegend')}
+              </p>
+            </div>
+          )}
           {tab === 'spec' && (
             <table className="w-full border-collapse tabular-nums">
               <thead className="sticky top-0 bg-white text-left text-slate-500 dark:bg-slate-900">
@@ -75,7 +102,7 @@ export function BottomPanel() {
                   <th className="px-1 py-1 font-medium">{t('spec.pos')}</th>
                   <th className="px-1 py-1 font-medium">{t('spec.name')}</th>
                   <th className="px-1 py-1 text-right font-medium">{t('spec.qty')}</th>
-                  <th className="px-1 py-1 font-medium">{t('spec.size')}</th>
+                  <th className="px-1 py-1 font-medium">{t(specMode === 'cut' ? 'spec.sizeCut' : 'spec.size')}</th>
                   <th className="px-1 py-1 font-medium">{t('spec.material')}</th>
                   <th className="px-1 py-1 font-medium">{t('spec.edge')}</th>
                 </tr>
@@ -87,7 +114,7 @@ export function BottomPanel() {
                     <td className="px-1 py-0.5">{partName(t, r.name)}</td>
                     <td className="px-1 py-0.5 text-right">{r.qty}</td>
                     <td className="px-1 py-0.5">
-                      {Math.round(r.length)}×{Math.round(r.width)}×{r.thickness}
+                      {Math.round(specSize(r, specMode).length)}×{Math.round(specSize(r, specMode).width)}×{r.thickness}
                     </td>
                     <td className="px-1 py-0.5">{materialName(r.material, lang)}</td>
                     <td className="px-1 py-0.5">{formatEdges(r.edges, letters, decimalSep(lang))}</td>
@@ -111,8 +138,14 @@ export function BottomPanel() {
           )}
           {tab === 'issues' &&
             (issues.length === 0 ? (
-              <div className="flex items-start gap-3 rounded-lg bg-emerald-50 p-3 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200" role="status">
-                <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+              <div
+                className="flex items-start gap-3 rounded-lg bg-emerald-50 p-3 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                role="status"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white"
+                >
                   ✓
                 </span>
                 <div>

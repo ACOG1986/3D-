@@ -10,10 +10,6 @@ function parseHash(): Route {
   return m ? { page: 'editor', id: m[1] } : { page: 'projects' };
 }
 
-export function navigate(hash: string) {
-  window.location.hash = hash;
-}
-
 export function App() {
   const [route, setRoute] = useState<Route>(parseHash);
   const theme = useWardrobe((s) => s.theme);

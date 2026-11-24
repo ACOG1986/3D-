@@ -17,7 +17,17 @@ import {
   wingWardrobe,
 } from '../lib/geometry';
 import { saveProject } from '../lib/projects';
-import type { CornerConfig, DoorsConfig, EntityRef, Section, SectionItem, SectionItemKind, Wardrobe, WardrobeType } from '../types/wardrobe';
+import type {
+  CornerConfig,
+  DoorsConfig,
+  SpecMode,
+  EntityRef,
+  Section,
+  SectionItem,
+  SectionItemKind,
+  Wardrobe,
+  WardrobeType,
+} from '../types/wardrobe';
 
 export type ViewMode = '3d' | 'front' | 'top' | 'drawing';
 export type CameraPreset = 'iso' | 'front' | 'top';
@@ -79,6 +89,9 @@ export interface WardrobeState {
   sheet: number;
   /** Какое крыло углового шкафа редактируется в 2D. */
   wing: 'main' | 'corner';
+  /** Размеры в спецификации и на листе чертежа: для заказа или для распила. */
+  specMode: SpecMode;
+  setSpecMode: (m: SpecMode) => void;
   theme: Theme;
   lang: Lang;
 
@@ -149,10 +162,13 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
   camera: { preset: 'iso', nonce: 0 },
   sheet: 1,
   wing: 'main',
+  specMode: 'order',
+  setSpecMode: (specMode) => set({ specMode }),
   theme: prefs.theme,
   lang: prefs.lang,
 
-  load: (w) => set({ wardrobe: normalizeWardrobe(w), past: [], future: [], selection: null, wing: 'main', saveState: 'saved', savedAt: w.updatedAt }),
+  load: (w) =>
+    set({ wardrobe: normalizeWardrobe(w), past: [], future: [], selection: null, wing: 'main', saveState: 'saved', savedAt: w.updatedAt }),
 
   update: (fn, opts) => {
     const cur = get().wardrobe;
@@ -203,9 +219,13 @@ export const useWardrobe = create<WardrobeState>((set, get) => ({
   },
   setSectionWidth: (id, width) => get().update((w) => onSectionWing(w, id, (x) => setSectionWidthFn(x, id, width))),
   moveDivider: (index, leftWidth, history = true, wing = get().wing) =>
-    get().update((w) => (wing === 'corner' && w.corner ? updateWing(w, (x) => moveDividerFn(x, index, leftWidth)) : moveDividerFn(w, index, leftWidth)), {
-      history,
-    }),
+    get().update(
+      (w) =>
+        wing === 'corner' && w.corner ? updateWing(w, (x) => moveDividerFn(x, index, leftWidth)) : moveDividerFn(w, index, leftWidth),
+      {
+        history,
+      },
+    ),
 
   addItem: (sectionId, kind, y) => {
     const w = get().wardrobe;

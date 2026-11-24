@@ -59,11 +59,32 @@ export function DimensionLabels() {
   const fz = D / 2 + off;
   return (
     <group>
-      <Line points={[[-W / 2, H + off, fz], [W / 2, H + off, fz]]} color={color} lineWidth={1} />
+      <Line
+        points={[
+          [-W / 2, H + off, fz],
+          [W / 2, H + off, fz],
+        ]}
+        color={color}
+        lineWidth={1}
+      />
       {label('width', [0, H + off, fz])}
-      <Line points={[[-W / 2 - off, 0, fz], [-W / 2 - off, H, fz]]} color={color} lineWidth={1} />
+      <Line
+        points={[
+          [-W / 2 - off, 0, fz],
+          [-W / 2 - off, H, fz],
+        ]}
+        color={color}
+        lineWidth={1}
+      />
       {label('height', [-W / 2 - off, H / 2, fz])}
-      <Line points={[[W / 2 + off, 0, -D / 2], [W / 2 + off, 0, D / 2]]} color={color} lineWidth={1} />
+      <Line
+        points={[
+          [W / 2 + off, 0, -D / 2],
+          [W / 2 + off, 0, D / 2],
+        ]}
+        color={color}
+        lineWidth={1}
+      />
       {label('depth', [W / 2 + off, 0, 0])}
     </group>
   );

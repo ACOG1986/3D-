@@ -22,7 +22,11 @@ export function CameraRig() {
     const dist = Math.max(W, H) * 1.6 + D;
     const target: [number, number, number] = [0, H / 2, (D * 1000 - w.depth) / 2000];
     const pos: [number, number, number] =
-      preset === 'front' ? [0, H / 2, dist] : preset === 'top' ? [0, H / 2 + dist, 0.001] : [dist * 0.6, H * 0.75 + dist * 0.25, dist * 0.8];
+      preset === 'front'
+        ? [0, H / 2, dist]
+        : preset === 'top'
+          ? [0, H / 2 + dist, 0.001]
+          : [dist * 0.6, H * 0.75 + dist * 0.25, dist * 0.8];
     camera.position.set(...pos);
     camera.lookAt(...target);
     if (controls) {

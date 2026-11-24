@@ -7,7 +7,7 @@
  * Оформление упрощённо по ГОСТ 2.104 (рамка, основная надпись) и 2.301 (формат, масштабы).
  */
 import { decimalSep, edgeLetters, formatNumber, hardwareName, LOCALE, partName, type Lang, type MessageKey, type TFunction } from '../i18n';
-import type { Door, Panel, Wardrobe } from '../types/wardrobe';
+import type { Door, Panel, SpecMode, Wardrobe } from '../types/wardrobe';
 import {
   carcassDims,
   computeCutting,
@@ -16,6 +16,7 @@ import {
   computeHardware,
   computePanels,
   computeSpec,
+  specSize,
   edgeTotals,
   formatEdges,
   itemExtent,
@@ -103,12 +104,28 @@ function arrow(x: number, y: number, dir: 'l' | 'r' | 'u' | 'd'): string {
   const W = 0.6;
   const pts =
     dir === 'l'
-      ? [[x, y], [x + L, y - W], [x + L, y + W]]
+      ? [
+          [x, y],
+          [x + L, y - W],
+          [x + L, y + W],
+        ]
       : dir === 'r'
-        ? [[x, y], [x - L, y - W], [x - L, y + W]]
+        ? [
+            [x, y],
+            [x - L, y - W],
+            [x - L, y + W],
+          ]
         : dir === 'u'
-          ? [[x, y], [x - W, y + L], [x + W, y + L]]
-          : [[x, y], [x - W, y - L], [x + W, y - L]];
+          ? [
+              [x, y],
+              [x - W, y + L],
+              [x + W, y + L],
+            ]
+          : [
+              [x, y],
+              [x - W, y - L],
+              [x + W, y - L],
+            ];
   return `<polygon points="${pts.map((p) => p.map(f).join(',')).join(' ')}" fill="${INK}" stroke="none"/>`;
 }
 
@@ -274,7 +291,14 @@ function layoutSheet1(w: Wardrobe): Layout1 {
     if (fitsBottom && fitsRight) {
       const notesX = facadeX;
       const notesY = fy + H + 8;
-      return { s, front: { x: fx, y: fy }, facade: { x: facadeX, y: fy }, side: { x: sideX, y: fy }, top: { x: fx, y: topY }, notes: { x: notesX, y: notesY } };
+      return {
+        s,
+        front: { x: fx, y: fy },
+        facade: { x: facadeX, y: fy },
+        side: { x: sideX, y: fy },
+        top: { x: fx, y: topY },
+        notes: { x: notesX, y: notesY },
+      };
     }
   }
   const s = 50;
@@ -447,7 +471,9 @@ function sideView(w: Wardrobe, panels: Panel[], L: Layout1): string {
     const z = Z(p.z);
     const y = Y(p.y + p.sy);
     if (p.name === 'rod' || p.name === 'pantograph') {
-      o.push(`<circle ${attrs({ cx: Z(p.z + p.sz / 2), cy: Y(p.y + p.sy / 2), r: Math.max(0.6, 12.5 / s), fill: 'none', stroke: INK, 'stroke-width': 0.3 })}/>`);
+      o.push(
+        `<circle ${attrs({ cx: Z(p.z + p.sz / 2), cy: Y(p.y + p.sy / 2), r: Math.max(0.6, 12.5 / s), fill: 'none', stroke: INK, 'stroke-width': 0.3 })}/>`,
+      );
       continue;
     }
     if (p.name === 'basket') {
@@ -600,7 +626,7 @@ function table(x: number, y: number, cols: Col[], rows: string[][], maxH: number
   return { svg: o.join(''), height };
 }
 
-function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: number): string {
+function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: number, mode: SpecMode): string {
   const panels = computePanels(w);
   const spec = computeSpec(panels);
   const hw = computeHardware(w);
@@ -609,12 +635,12 @@ function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: 
   const o: string[] = [];
 
   const sx = FRAME.x1 + 5;
-  o.push(viewTitle(sx, 13, t('dr.spec')));
+  o.push(viewTitle(sx, 13, t(mode === 'cut' ? 'dr.specCut' : 'dr.specOrder')));
   const specCols: Col[] = [
     { title: t('spec.pos'), w: 11, anchor: 'middle' },
     { title: t('spec.name'), w: 52 },
     { title: t('spec.qty'), w: 11, anchor: 'middle' },
-    { title: t('spec.size'), w: 32, anchor: 'middle' },
+    { title: t(mode === 'cut' ? 'spec.sizeCut' : 'spec.size'), w: 32, anchor: 'middle' },
     { title: t('spec.material'), w: 50 },
     { title: t('spec.edge'), w: 49 },
   ];
@@ -622,7 +648,7 @@ function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: 
     String(r.pos),
     partName(t, r.name),
     String(r.qty),
-    `${Math.round(r.length)}×${Math.round(r.width)}×${formatNumber(lang, r.thickness, 1)}`,
+    `${Math.round(specSize(r, mode).length)}×${Math.round(specSize(r, mode).width)}×${formatNumber(lang, r.thickness, 1)}`,
     materialName(r.material, lang),
     formatEdges(r.edges, letters, dec),
   ]);
@@ -641,7 +667,8 @@ function sheet2(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: 
   for (const [th, m] of Object.entries(edgeTotals(panels)).sort((a, b) => Number(b[0]) - Number(a[0]))) {
     totals.push(t('spec.totalEdge', { t: formatNumber(lang, Number(th), 1), m: formatNumber(lang, m, 2) }));
   }
-  for (const a of materialAreas(spec)) totals.push(t('spec.area', { material: materialName(a.material, lang), area: formatNumber(lang, a.area, 2) }));
+  for (const a of materialAreas(spec))
+    totals.push(t('spec.area', { material: materialName(a.material, lang), area: formatNumber(lang, a.area, 2) }));
   const totalsH = totals.length * 4.5 + 6;
   const hwTable = table(hx, 17, hwCols, hwRows, STAMP.y - 17 - totalsH - 4);
   o.push(hwTable.svg);
@@ -699,6 +726,7 @@ function sheet3(w: Wardrobe, t: TFunction, lang: Lang, stamp: BaseStamp, sheet: 
   const o: string[] = [];
   const x0 = FRAME.x1 + 5;
   o.push(viewTitle(x0, 13, t('dr.cutting')));
+  o.push(text(x0 + textWidth(t('dr.cutting'), 3.5) + 8, 13, t('dr.cuttingNote'), { size: 2.5 }));
   // До 4 листов — сетка 2×2, больше — 3×3 (мельче), остальное — строкой «ещё листов»
   const cols = sheets.length <= 4 ? 2 : 3;
   const maxCells = cols * cols;
@@ -730,7 +758,12 @@ export function sheetCount(w: Wardrobe): number {
 /**
  * Листы чертежа: виды с размерами, [боковое крыло], спецификация с фурнитурой, раскрой.
  */
-export function buildSheets(w: Wardrobe, t: TFunction, lang: Lang): string[] {
+export interface SheetOptions {
+  /** Размеры в спецификации: для заказа (чистовые) или для распила (без кромки). */
+  specMode?: SpecMode;
+}
+
+export function buildSheets(w: Wardrobe, t: TFunction, lang: Lang, opts: SheetOptions = {}): string[] {
   let date: string;
   try {
     date = new Date(w.updatedAt || Date.now()).toLocaleDateString(LOCALE[lang]);
@@ -743,7 +776,7 @@ export function buildSheets(w: Wardrobe, t: TFunction, lang: Lang): string[] {
   const stamp: BaseStamp = { project: w.name, date, dims, total };
   const sheets = [sheet1(w, t, lang, stamp)];
   if (corner) sheets.push(sheetWing(w, t, stamp, sheets.length + 1));
-  sheets.push(sheet2(w, t, lang, stamp, sheets.length + 1));
+  sheets.push(sheet2(w, t, lang, stamp, sheets.length + 1, opts.specMode ?? 'order'));
   sheets.push(sheet3(w, t, lang, stamp, sheets.length + 1));
   return sheets;
 }

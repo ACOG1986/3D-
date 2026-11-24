@@ -20,6 +20,7 @@ import type {
   SectionItemKind,
   SectionLayout,
   SlideType,
+  SpecMode,
   SpecRow,
   Unit,
   ValidationIssue,
@@ -202,8 +203,7 @@ function normalizeSingle(w: Wardrobe): Wardrobe {
       return { ...it, y: clamp(it.y, minY, maxY) };
     }),
   }));
-  const doorsCount =
-    w.doors.kind === 'sliding' ? clamp(Math.round(w.doors.count), 2, 3) : Math.max(1, Math.round(w.doors.count));
+  const doorsCount = w.doors.kind === 'sliding' ? clamp(Math.round(w.doors.count), 2, 3) : Math.max(1, Math.round(w.doors.count));
   return { ...w, sections, doors: { ...w.doors, count: doorsCount } };
 }
 
@@ -899,8 +899,25 @@ export function edgeTotals(panels: Panel[]): Record<string, number> {
 export const GROUP_ORDER: PartGroup[] = ['body', 'plinth', 'back', 'drawer', 'facade'];
 
 const PART_ORDER: PartName[] = [
-  'side', 'top', 'bottom', 'divider', 'shelfFixed', 'shelfRemovable', 'plinthFront', 'plinthBack', 'back',
-  'drawerFront', 'drawerSide', 'drawerFrontBack', 'drawerBottom', 'doorSwing', 'doorLift', 'doorSliding', 'rod', 'basket', 'pantograph',
+  'side',
+  'top',
+  'bottom',
+  'divider',
+  'shelfFixed',
+  'shelfRemovable',
+  'plinthFront',
+  'plinthBack',
+  'back',
+  'drawerFront',
+  'drawerSide',
+  'drawerFrontBack',
+  'drawerBottom',
+  'doorSwing',
+  'doorLift',
+  'doorSliding',
+  'rod',
+  'basket',
+  'pantograph',
 ];
 
 export function computeSpec(panels: Panel[]): SpecRow[] {
@@ -922,6 +939,9 @@ export function computeSpec(panels: Panel[]): SpecRow[] {
         material: p.material,
         edges: e,
         group: p.group,
+        // Кромка на длинных торцах (Д) уменьшает ширину, на коротких (Ш) — длину
+        cutLength: round1(p.length - e.W1 - e.W2),
+        cutWidth: round1(p.widthMm - e.L1 - e.L2),
       });
   }
   const rows = [...map.values()].sort(
@@ -933,6 +953,11 @@ export function computeSpec(panels: Panel[]): SpecRow[] {
   );
   rows.forEach((r, i) => (r.pos = i + 1));
   return rows;
+}
+
+/** Размер детали для выбранного режима спецификации. */
+export function specSize(r: SpecRow, mode: SpecMode): { length: number; width: number } {
+  return mode === 'cut' ? { length: r.cutLength, width: r.cutWidth } : { length: r.length, width: r.width };
 }
 
 /** Площадь плитных материалов по материалам, м². */
@@ -1142,8 +1167,7 @@ function validateSingle(w: Wardrobe): ValidationIssue[] {
     const shelves = items.filter((x) => x.kind === 'shelf');
     for (let i = 1; i < shelves.length; i++) {
       const gap = shelves[i].y - shelves[i - 1].y - d.t;
-      if (gap > 0 && gap < 100)
-        push('warning', 'shelfGap', { n, gap }, { type: 'item', sectionId: s.id, itemId: shelves[i].id });
+      if (gap > 0 && gap < 100) push('warning', 'shelfGap', { n, gap }, { type: 'item', sectionId: s.id, itemId: shelves[i].id });
     }
   });
 
@@ -1200,7 +1224,8 @@ export function computeCutting(rows: SpecRow[], override?: { length: number; wid
     const grain = getMaterial(r.material).grain;
     for (let i = 0; i < r.qty; i++) {
       const list = byMat.get(r.material) ?? [];
-      list.push({ w: r.length, h: r.width, label: `${r.pos}`, pos: r.pos, grain });
+      // Раскрой всегда по размерам распила (за вычетом кромки)
+      list.push({ w: r.cutLength, h: r.cutWidth, label: `${r.pos}`, pos: r.pos, grain });
       byMat.set(r.material, list);
     }
   }
@@ -1361,7 +1386,11 @@ export function defaultCorner(w: Wardrobe): CornerConfig {
     width,
     doorCount: w.doors.kind === 'sliding' ? 2 : 3,
     sections: [
-      { id: uid('sec'), width: widths[0], items: [{ ...createItem('shelf', top), fixed: true } as SectionItem, createItem('rod', top - 60)] },
+      {
+        id: uid('sec'),
+        width: widths[0],
+        items: [{ ...createItem('shelf', top), fixed: true } as SectionItem, createItem('rod', top - 60)],
+      },
       {
         id: uid('sec'),
         width: widths[1],

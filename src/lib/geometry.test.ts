@@ -23,6 +23,7 @@ import {
   normalizeWardrobe,
   removeSection,
   snap,
+  specSize,
   splitSection,
   validate,
 } from './geometry';
@@ -287,7 +288,9 @@ describe('угловой шкаф', () => {
       expect(p.x).toBeGreaterThanOrEqual(-0.01);
       expect(p.x + p.sx).toBeLessThanOrEqual(w.depth + 0.01);
     }
-    const sides = computeSpec(panels).filter((r) => r.name === 'side').reduce((a, r) => a + r.qty, 0);
+    const sides = computeSpec(panels)
+      .filter((r) => r.name === 'side')
+      .reduce((a, r) => a + r.qty, 0);
     expect(sides).toBe(4);
   });
 
@@ -320,5 +323,25 @@ describe('угловой шкаф', () => {
   it('короткое крыло — ошибка', () => {
     const bad = normalizeWardrobe({ ...w, corner: { ...w.corner!, width: 500 } });
     expect(validate(bad).some((i) => i.code === 'cornerWingShort')).toBe(true);
+  });
+});
+
+describe('режимы спецификации', () => {
+  it('размер распила = чистовой минус кромка на торцах', () => {
+    const spec = computeSpec(computePanels(simple()));
+    const side = spec.find((r) => r.name === 'side')!;
+    // Д1 = 2 мм (уменьшает ширину), Ш1/Ш2 = 0,4 мм (уменьшают длину)
+    expect(specSize(side, 'order')).toEqual({ length: 2000, width: 578 });
+    expect(specSize(side, 'cut')).toEqual({ length: 1999.2, width: 576 });
+    const back = spec.find((r) => r.name === 'back')!;
+    expect(specSize(back, 'cut')).toEqual(specSize(back, 'order'));
+  });
+
+  it('раскрой идёт по размерам распила', () => {
+    const spec = computeSpec(computePanels(simple()));
+    const sheets = computeCutting(spec);
+    const side = spec.find((r) => r.name === 'side')!;
+    const placed = sheets.flatMap((s) => s.placements).find((p) => p.pos === side.pos)!;
+    expect([placed.w, placed.h].sort()).toEqual([side.cutLength, side.cutWidth].sort());
   });
 });

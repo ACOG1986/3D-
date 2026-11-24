@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MessageKey } from '../../i18n';
 import { useT } from '../../i18n/useT';
-
-const TOUR_KEY = 'wardrobe.tour.v1';
+import { markSeen } from './tourStorage';
 
 interface TourStep {
   /** Значение data-tour у подсвечиваемого элемента; null — по центру экрана. */
@@ -19,22 +18,6 @@ const STEPS: TourStep[] = [
   { target: 'props', title: 'tour.props.title', text: 'tour.props.text' },
   { target: 'download', title: 'tour.download.title', text: 'tour.download.text' },
 ];
-
-export function tourSeen(): boolean {
-  try {
-    return localStorage.getItem(TOUR_KEY) === '1';
-  } catch {
-    return true;
-  }
-}
-
-function markSeen() {
-  try {
-    localStorage.setItem(TOUR_KEY, '1');
-  } catch {
-    /* приватный режим — не критично */
-  }
-}
 
 function findTarget(name: string | null): DOMRect | null {
   if (!name) return null;
@@ -179,7 +162,11 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
         </div>
         <div className="mt-3 flex items-center gap-2">
           {!last && (
-            <button type="button" className="btn whitespace-nowrap border-transparent px-1.5 text-slate-500 dark:border-transparent" onClick={finish}>
+            <button
+              type="button"
+              className="btn whitespace-nowrap border-transparent px-1.5 text-slate-500 dark:border-transparent"
+              onClick={finish}
+            >
               {t('tour.skip')}
             </button>
           )}
@@ -188,7 +175,12 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
               ← {t('wiz.back')}
             </button>
           )}
-          <button ref={nextRef} type="button" className={`btn btn-primary whitespace-nowrap ${i === 0 ? 'ml-auto' : ''}`} onClick={() => (last ? finish() : setI(i + 1))}>
+          <button
+            ref={nextRef}
+            type="button"
+            className={`btn btn-primary whitespace-nowrap ${i === 0 ? 'ml-auto' : ''}`}
+            onClick={() => (last ? finish() : setI(i + 1))}
+          >
             {last ? t('tour.done') : `${t('tour.next')} →`}
           </button>
         </div>

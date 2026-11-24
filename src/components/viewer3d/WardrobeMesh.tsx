@@ -44,7 +44,13 @@ const PanelMesh = memo(function PanelMesh({ panel: p, offset, selected, onSelect
           [-1, 1].map((s) => {
             const o = (s * len * MM) / 2 - s * 0.01;
             return (
-              <mesh key={s} geometry={unitBox} material={material} position={alongZ ? [0, -0.06, o] : [o, -0.06, 0]} scale={[0.015, 0.14, 0.015]} />
+              <mesh
+                key={s}
+                geometry={unitBox}
+                material={material}
+                position={alongZ ? [0, -0.06, o] : [o, -0.06, 0]}
+                scale={[0.015, 0.14, 0.015]}
+              />
             );
           })}
       </group>
@@ -99,8 +105,7 @@ export function WardrobeMesh() {
       {panels.map((p) => {
         if (!showDoors && p.group === 'facade') return null;
         const selected =
-          sameRef(selection, p.ref) ||
-          (selection?.type === 'section' && p.ref.type === 'item' && p.ref.sectionId === selection.sectionId);
+          sameRef(selection, p.ref) || (selection?.type === 'section' && p.ref.type === 'item' && p.ref.sectionId === selection.sectionId);
         return (
           <PanelMesh
             key={p.key}

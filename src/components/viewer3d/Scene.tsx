@@ -3,10 +3,11 @@ import { Canvas } from '@react-three/fiber';
 import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useT } from '../../i18n/useT';
-import { activeWardrobe, carcassDims, layoutSections } from '../../lib/geometry';
+import { carcassDims } from '../../lib/geometry';
 import { useWardrobe, type CameraPreset } from '../../store/wardrobeStore';
-import { readDragKind, type DragKind } from '../panels/dragKinds';
+import { readDragKind } from '../panels/dragKinds';
 import { cameraRef } from './cameraRef';
+import { dropOnModel } from './dropOnModel';
 import { CameraRig } from './CameraRig';
 import { DimensionLabels } from './DimensionLabels';
 import { WardrobeMesh } from './WardrobeMesh';
@@ -25,21 +26,6 @@ function screenToWardrobe(clientX: number, clientY: number, el: HTMLElement): { 
   const hit = new THREE.Vector3();
   if (!ray.ray.intersectPlane(plane, hit)) return null;
   return { x: hit.x * 1000 + w.width / 2, y: hit.y * 1000 };
-}
-
-export function dropOnModel(kind: DragKind, xMm: number, yMm: number) {
-  const st = useWardrobe.getState();
-  // В 2D-виде спереди добавляем в редактируемое крыло, в 3D — в основное
-  const w = st.view === 'front' ? activeWardrobe(st.wardrobe, st.wing) : st.wardrobe;
-  const d = carcassDims(w);
-  const layout = layoutSections(w);
-  const sec = layout.find((s) => xMm >= s.x - d.t && xMm <= s.x + s.width + d.t) ?? (xMm < w.width / 2 ? layout[0] : layout[layout.length - 1]);
-  if (!sec) return;
-  if (kind === 'section') {
-    st.splitSection(sec.id);
-    return;
-  }
-  st.addItem(sec.id, kind, yMm - d.innerBottom);
 }
 
 export function Scene() {
@@ -110,7 +96,10 @@ export function Scene() {
         <WardrobeMesh />
         <DimensionLabels />
         <ContactShadows position={[0, 0.0005, 0]} opacity={0.45} scale={8} blur={2.2} far={3} />
-        <gridHelper args={[10, 100, theme === 'dark' ? '#334155' : '#cbd5e1', theme === 'dark' ? '#1e293b' : '#e2e8f0']} position={[0, 0, 0]} />
+        <gridHelper
+          args={[10, 100, theme === 'dark' ? '#334155' : '#cbd5e1', theme === 'dark' ? '#1e293b' : '#e2e8f0']}
+          position={[0, 0, 0]}
+        />
         <OrbitControls makeDefault enableDamping maxPolarAngle={Math.PI * 0.95} minDistance={0.5} maxDistance={15} />
         <CameraRig />
       </Canvas>

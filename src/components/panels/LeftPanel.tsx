@@ -43,7 +43,15 @@ const ITEM_HELP: Partial<Record<DragKind, MessageKey>> = {
 
 function Icon({ d }: { d: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <path d={d} />
     </svg>
   );
@@ -62,8 +70,7 @@ export function LeftPanel() {
 
   /** Клик по элементу каталога — добавить в выбранную секцию (или первую). */
   const addByClick = (kind: DragKind) => {
-    const sectionId =
-      selection?.type === 'section' || selection?.type === 'item' ? selection.sectionId : w.sections[0]?.id;
+    const sectionId = selection?.type === 'section' || selection?.type === 'item' ? selection.sectionId : w.sections[0]?.id;
     if (kind === 'section') {
       if (sectionId && (selection?.type === 'section' || selection?.type === 'item')) splitSection(sectionId);
       else addSection();
@@ -73,7 +80,10 @@ export function LeftPanel() {
   };
 
   return (
-    <aside className="flex h-full flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900" aria-label={t('left.types')}>
+    <aside
+      className="flex h-full flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+      aria-label={t('left.types')}
+    >
       <section>
         <h2 className="panel-title flex items-center gap-1.5">
           {t('left.types')} <HelpTip term={t('left.types')} text={t('help.types')} />
@@ -123,7 +133,9 @@ export function LeftPanel() {
               >
                 <Icon d={ITEM_ICON[kind]} />
                 {t(ITEM_KEY[kind])}
-                <span aria-hidden className="ml-auto text-slate-300 dark:text-slate-600">⠿</span>
+                <span aria-hidden className="ml-auto text-slate-300 dark:text-slate-600">
+                  ⠿
+                </span>
               </button>
               {ITEM_HELP[kind] && <HelpTip term={t(ITEM_KEY[kind])} text={t(ITEM_HELP[kind]!)} align="right" />}
             </li>
@@ -135,7 +147,12 @@ export function LeftPanel() {
         <h2 className="panel-title flex items-center gap-1.5">
           {t('left.materials')} <HelpTip term={t('left.materials')} text={t('help.ldsp')} />
         </h2>
-        <MaterialPicker label={t('left.body')} value={w.bodyMaterial} materials={bodyMaterials()} onChange={(id) => patch({ bodyMaterial: id })} />
+        <MaterialPicker
+          label={t('left.body')}
+          value={w.bodyMaterial}
+          materials={bodyMaterials()}
+          onChange={(id) => patch({ bodyMaterial: id })}
+        />
         <MaterialPicker
           label={t('left.facades')}
           value={w.doors.material}

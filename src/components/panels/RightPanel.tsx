@@ -50,14 +50,36 @@ function CarcassProps() {
             />
           ))}
         </div>
-        <Select label={t('right.type')} value={w.type} options={types.map((v) => ({ value: v, label: t(`type.${v}`) }))} onChange={(type) => (type === 'corner' && !w.corner ? applyTemplate('corner') : patch({ type }))} />
+        <Select
+          label={t('right.type')}
+          value={w.type}
+          options={types.map((v) => ({ value: v, label: t(`type.${v}`) }))}
+          onChange={(type) => (type === 'corner' && !w.corner ? applyTemplate('corner') : patch({ type }))}
+        />
         <div className="grid grid-cols-2 gap-2">
-          <Segmented label={t('right.board')} help={t('help.board')} value={w.boardThickness} options={[16, 18, 22].map((v) => ({ value: v as 16 | 18 | 22, label: String(v) }))} onChange={(v) => patch({ boardThickness: v })} />
-          <Segmented label={t('right.backT')} help={t('help.back')} value={w.backThickness} options={[3, 4].map((v) => ({ value: v as 3 | 4, label: String(v) }))} onChange={(v) => patch({ backThickness: v })} />
+          <Segmented
+            label={t('right.board')}
+            help={t('help.board')}
+            value={w.boardThickness}
+            options={[16, 18, 22].map((v) => ({ value: v as 16 | 18 | 22, label: String(v) }))}
+            onChange={(v) => patch({ boardThickness: v })}
+          />
+          <Segmented
+            label={t('right.backT')}
+            help={t('help.back')}
+            value={w.backThickness}
+            options={[3, 4].map((v) => ({ value: v as 3 | 4, label: String(v) }))}
+            onChange={(v) => patch({ backThickness: v })}
+          />
         </div>
         <div className="grid grid-cols-2 items-end gap-2">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" className="h-4 w-4 accent-blue-600" checked={w.plinth.enabled} onChange={(e) => patch({ plinth: { ...w.plinth, enabled: e.target.checked } })} />
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-blue-600"
+              checked={w.plinth.enabled}
+              onChange={(e) => patch({ plinth: { ...w.plinth, enabled: e.target.checked } })}
+            />
             {t('right.plinth')}
           </label>
           <DimensionInput
@@ -87,7 +109,13 @@ function CarcassProps() {
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Select<HingeType> label={t('right.hinge')} help={t('help.hinge')} value={w.hinge} options={(['overlay', 'half-overlay', 'inset'] as const).map((v) => ({ value: v, label: t(`hinge.${v}`) }))} onChange={(hinge) => patch({ hinge })} />
+          <Select<HingeType>
+            label={t('right.hinge')}
+            help={t('help.hinge')}
+            value={w.hinge}
+            options={(['overlay', 'half-overlay', 'inset'] as const).map((v) => ({ value: v, label: t(`hinge.${v}`) }))}
+            onChange={(hinge) => patch({ hinge })}
+          />
           <Select<SlideType>
             label={t('right.slide')}
             help={t('help.slide')}
@@ -96,9 +124,19 @@ function CarcassProps() {
             onChange={(defaultSlide) => patch({ defaultSlide })}
           />
         </div>
-        <MaterialPicker label={t('right.bodyMat')} value={w.bodyMaterial} materials={bodyMaterials()} onChange={(id) => patch({ bodyMaterial: id })} />
+        <MaterialPicker
+          label={t('right.bodyMat')}
+          value={w.bodyMaterial}
+          materials={bodyMaterials()}
+          onChange={(id) => patch({ bodyMaterial: id })}
+        />
         {w.type !== 'built-in' && (
-          <MaterialPicker label={t('right.backMat')} value={w.backMaterial} materials={backMaterials()} onChange={(id) => patch({ backMaterial: id })} />
+          <MaterialPicker
+            label={t('right.backMat')}
+            value={w.backMaterial}
+            materials={backMaterials()}
+            onChange={(id) => patch({ backMaterial: id })}
+          />
         )}
         <button type="button" className="btn" onClick={addSection}>
           + {t('right.addSection')}
@@ -158,13 +196,34 @@ function CarcassProps() {
         {w.doors.kind !== 'none' && (
           <>
             {w.doors.kind === 'sliding' ? (
-              <Segmented label={t('right.doorCount')} value={w.doors.count} options={[2, 3].map((v) => ({ value: v, label: String(v) }))} onChange={(count) => setDoors({ count })} />
+              <Segmented
+                label={t('right.doorCount')}
+                value={w.doors.count}
+                options={[2, 3].map((v) => ({ value: v, label: String(v) }))}
+                onChange={(count) => setDoors({ count })}
+              />
             ) : (
-              <DimensionInput label={t('right.doorCount')} value={w.doors.count} min={1} max={10} unit="" onCommit={(v) => setDoors({ count: Math.round(v) })} />
+              <DimensionInput
+                label={t('right.doorCount')}
+                value={w.doors.count}
+                min={1}
+                max={10}
+                unit=""
+                onCommit={(v) => setDoors({ count: Math.round(v) })}
+              />
             )}
             {w.doors.kind !== 'sliding' && (
               <div className="grid grid-cols-2 gap-2">
-                <DimensionInput label={t('right.gap')} help={t('help.gap')} value={w.doors.gap} min={LIMITS.gap.min} max={LIMITS.gap.max} step={0.5} unit={mm} onCommit={(gap) => setDoors({ gap })} />
+                <DimensionInput
+                  label={t('right.gap')}
+                  help={t('help.gap')}
+                  value={w.doors.gap}
+                  min={LIMITS.gap.min}
+                  max={LIMITS.gap.max}
+                  step={0.5}
+                  unit={mm}
+                  onCommit={(gap) => setDoors({ gap })}
+                />
                 <Select<HandleType>
                   label={t('right.handle')}
                   help={t('help.push')}
@@ -174,7 +233,12 @@ function CarcassProps() {
                 />
               </div>
             )}
-            <MaterialPicker label={t('right.doorMat')} value={w.doors.material} materials={facadeMaterials()} onChange={(id) => setDoors({ material: id, overrides: [] })} />
+            <MaterialPicker
+              label={t('right.doorMat')}
+              value={w.doors.material}
+              materials={facadeMaterials()}
+              onChange={(id) => setDoors({ material: id, overrides: [] })}
+            />
           </>
         )}
       </Group>
@@ -200,9 +264,25 @@ function ItemProps({ sectionId, item }: { sectionId: string; item: SectionItem }
   const mm = t('mm');
   return (
     <div className="flex flex-col gap-3">
-      <DimensionInput label={t('right.itemY')} value={item.y} min={0} max={inner} step={10} unit={mm} onCommit={(y) => updateItem(sectionId, item.id, { y })} />
+      <DimensionInput
+        label={t('right.itemY')}
+        value={item.y}
+        min={0}
+        max={inner}
+        step={10}
+        unit={mm}
+        onCommit={(y) => updateItem(sectionId, item.id, { y })}
+      />
       {(item.kind === 'drawer' || item.kind === 'basket') && (
-        <DimensionInput label={t('right.itemH')} value={item.height} min={80} max={600} step={10} unit={mm} onCommit={(height) => updateItem(sectionId, item.id, { height })} />
+        <DimensionInput
+          label={t('right.itemH')}
+          value={item.height}
+          min={80}
+          max={600}
+          step={10}
+          unit={mm}
+          onCommit={(height) => updateItem(sectionId, item.id, { height })}
+        />
       )}
       {item.kind === 'drawer' && (
         <Select<SlideType>
@@ -214,7 +294,12 @@ function ItemProps({ sectionId, item }: { sectionId: string; item: SectionItem }
       )}
       {item.kind === 'shelf' && (
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="h-4 w-4 accent-blue-600" checked={!!item.fixed} onChange={(e) => updateItem(sectionId, item.id, { fixed: e.target.checked })} />
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-blue-600"
+            checked={!!item.fixed}
+            onChange={(e) => updateItem(sectionId, item.id, { fixed: e.target.checked })}
+          />
           {t('right.fixed')}
         </label>
       )}
@@ -291,7 +376,12 @@ function SectionProps({ sectionId }: { sectionId: string }) {
         <button type="button" className="btn flex-1" onClick={() => splitSection(sectionId)}>
           {t('right.split')}
         </button>
-        <button type="button" className="btn btn-danger flex-1" disabled={owner.sections.length < 2} onClick={() => removeSection(sectionId)}>
+        <button
+          type="button"
+          className="btn btn-danger flex-1"
+          disabled={owner.sections.length < 2}
+          onClick={() => removeSection(sectionId)}
+        >
           {t('right.removeSection')}
         </button>
       </div>
@@ -379,7 +469,10 @@ export function RightPanel() {
   const parentSection = found ? found.section.id : null;
 
   return (
-    <aside className="flex h-full flex-col overflow-y-auto border-l border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900" aria-label={t('right.title')}>
+    <aside
+      className="flex h-full flex-col overflow-y-auto border-l border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+      aria-label={t('right.title')}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         {nested && (

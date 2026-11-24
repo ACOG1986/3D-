@@ -5,11 +5,11 @@ import { sheetCount } from '../../lib/drawing';
 import { exportJson, exportPdf, exportPng, exportSvg } from '../../lib/export';
 import { useWardrobe, type ViewMode } from '../../store/wardrobeStore';
 
-
 export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: () => void }) {
   const t = useT();
   const w = useWardrobe((s) => s.wardrobe);
   const lang = useWardrobe((s) => s.lang);
+  const specMode = useWardrobe((s) => s.specMode);
   const view = useWardrobe((s) => s.view);
   const setView = useWardrobe((s) => s.setView);
   const undo = useWardrobe((s) => s.undo);
@@ -89,7 +89,15 @@ export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: (
 
       <div className="seg mx-auto" role="tablist" aria-label={t('view.3d')} data-tour="views">
         {views.map(([v, label, key]) => (
-          <button key={v} type="button" role="tab" aria-selected={view === v} aria-pressed={view === v} onClick={() => setView(v)} title={`${label} (${key})`}>
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            aria-pressed={view === v}
+            onClick={() => setView(v)}
+            title={`${label} (${key})`}
+          >
             {label}
           </button>
         ))}
@@ -102,14 +110,29 @@ export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: (
           </option>
         ))}
       </select>
-      <button type="button" className="btn px-2" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('top.theme')} title={t('top.theme')}>
+      <button
+        type="button"
+        className="btn px-2"
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        aria-label={t('top.theme')}
+        title={t('top.theme')}
+      >
         {theme === 'dark' ? '☀' : '☾'}
       </button>
-      <button type="button" className="btn hidden px-2 xl:inline-flex" onClick={onHotkeys} aria-label={t('top.hotkeys')} title={t('top.hotkeys')}>
+      <button
+        type="button"
+        className="btn hidden px-2 xl:inline-flex"
+        onClick={onHotkeys}
+        aria-label={t('top.hotkeys')}
+        title={t('top.hotkeys')}
+      >
         ⌨
       </button>
       <button type="button" className="btn px-2" onClick={onTour} aria-label={t('tour.howTo')} title={t('tour.howTo')}>
-        <span aria-hidden className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+        <span
+          aria-hidden
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+        >
           ?
         </span>
         <span className="hidden xl:inline">{t('tour.howTo')}</span>
@@ -128,17 +151,20 @@ export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: (
           <span className="text-[10px] font-normal opacity-80">{t('hint.downloadSub')}</span>
         </button>
         {menu && (
-          <div role="menu" className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800">
-            <MenuItem onClick={() => run(() => exportPdf(w, t, lang))}>{t('top.exportPdf')}</MenuItem>
+          <div
+            role="menu"
+            className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          >
+            <MenuItem onClick={() => run(() => exportPdf(w, t, lang, { specMode }))}>{t('top.exportPdf')}</MenuItem>
             <hr className="my-1 border-slate-200 dark:border-slate-700" />
             {SHEETS.map((n) => (
-              <MenuItem key={`svg${n}`} onClick={() => run(() => exportSvg(w, t, lang, n - 1))}>
+              <MenuItem key={`svg${n}`} onClick={() => run(() => exportSvg(w, t, lang, n - 1, { specMode }))}>
                 {t('top.exportSvg', { n })}
               </MenuItem>
             ))}
             <hr className="my-1 border-slate-200 dark:border-slate-700" />
             {SHEETS.map((n) => (
-              <MenuItem key={`png${n}`} onClick={() => run(() => exportPng(w, t, lang, n - 1))}>
+              <MenuItem key={`png${n}`} onClick={() => run(() => exportPng(w, t, lang, n - 1, { specMode }))}>
                 {t('top.exportPng', { n })}
               </MenuItem>
             ))}
@@ -153,7 +179,12 @@ export function TopBar({ onHotkeys, onTour }: { onHotkeys: () => void; onTour: (
 
 function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button type="button" role="menuitem" onClick={onClick} className="block w-full px-3 py-1.5 text-left hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:hover:bg-slate-700 dark:focus:bg-slate-700">
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="block w-full px-3 py-1.5 text-left hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:hover:bg-slate-700 dark:focus:bg-slate-700"
+    >
       {children}
     </button>
   );

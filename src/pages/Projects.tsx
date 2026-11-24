@@ -21,7 +21,16 @@ function Thumb({ w }: { w: Wardrobe }) {
     <svg viewBox={`-5 -5 ${W + 10} ${H + 10}`} className="h-28 w-full" aria-hidden>
       <rect x={0} y={0} width={W} height={H} fill={body} stroke="#64748b" strokeWidth={0.6} />
       {Array.from({ length: n }, (_, i) => (
-        <rect key={i} x={(i * W) / n + 0.6} y={0.6} width={W / n - 1.2} height={H - 1.2 - (w.plinth.enabled ? w.plinth.height * s : 0)} fill={color} stroke="#475569" strokeWidth={0.4} />
+        <rect
+          key={i}
+          x={(i * W) / n + 0.6}
+          y={0.6}
+          width={W / n - 1.2}
+          height={H - 1.2 - (w.plinth.enabled ? w.plinth.height * s : 0)}
+          fill={color}
+          stroke="#475569"
+          strokeWidth={0.4}
+        />
       ))}
     </svg>
   );
@@ -60,14 +69,24 @@ export function Projects() {
             <h1 className="text-lg font-semibold leading-tight">{t('app.title')}</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">{t('app.tagline')}</p>
           </div>
-          <select aria-label={t('lang.label')} className="input py-1 text-xs" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+          <select
+            aria-label={t('lang.label')}
+            className="input py-1 text-xs"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+          >
             {LANGS.map((l) => (
               <option key={l} value={l}>
                 {l.toUpperCase()} · {t(`lang.${l}`)}
               </option>
             ))}
           </select>
-          <button type="button" className="btn px-2" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('top.theme')}>
+          <button
+            type="button"
+            className="btn px-2"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={t('top.theme')}
+          >
             {theme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
@@ -81,7 +100,10 @@ export function Projects() {
             onClick={() => setWizard(true)}
             className="group flex w-full items-center gap-4 rounded-xl bg-blue-600 p-5 text-left text-white shadow-lg transition hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300 dark:focus-visible:ring-blue-800"
           >
-            <span aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15 text-3xl transition group-hover:scale-105">
+            <span
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15 text-3xl transition group-hover:scale-105"
+            >
               ＋
             </span>
             <span className="min-w-0">
@@ -151,7 +173,10 @@ export function Projects() {
           ) : (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((w) => (
-                <li key={w.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <li
+                  key={w.id}
+                  className="flex flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                >
                   <a href={`#/editor/${w.id}`} className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                     <Thumb w={w} />
                     <h3 className="mt-2 truncate font-medium">{w.name}</h3>
@@ -159,7 +184,9 @@ export function Projects() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {t(`type.${w.type}`)} · {w.width}×{w.height}×{w.depth} {t('mm')}
                   </p>
-                  <p className="text-xs text-slate-400">{t('proj.updated', { date: new Date(w.updatedAt).toLocaleString(LOCALE[lang]) })}</p>
+                  <p className="text-xs text-slate-400">
+                    {t('proj.updated', { date: new Date(w.updatedAt).toLocaleString(LOCALE[lang]) })}
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-1">
                     <a href={`#/editor/${w.id}`} className="btn btn-primary px-2 py-1 text-xs">
                       {t('proj.open')}
@@ -177,7 +204,9 @@ export function Projects() {
                     <button
                       type="button"
                       className="btn px-2 py-1 text-xs"
-                      onClick={() => downloadBlob(new Blob([exportProjectJson(w)], { type: 'application/json' }), `${safeFileName(w.name)}.json`)}
+                      onClick={() =>
+                        downloadBlob(new Blob([exportProjectJson(w)], { type: 'application/json' }), `${safeFileName(w.name)}.json`)
+                      }
                     >
                       {t('proj.export')}
                     </button>

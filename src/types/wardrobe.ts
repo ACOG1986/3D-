@@ -222,7 +222,13 @@ export interface SpecRow {
   material: MaterialId;
   edges: PartEdges;
   group: PartGroup;
+  /** Размер распила: чистовой размер минус толщина кромки на соответствующих торцах. */
+  cutLength: number;
+  cutWidth: number;
 }
+
+/** Режим спецификации: «для заказа» — чистовые размеры, «для распила» — за вычетом кромки. */
+export type SpecMode = 'order' | 'cut';
 
 export interface Door {
   index: number;
